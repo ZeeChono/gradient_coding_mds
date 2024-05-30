@@ -1,3 +1,5 @@
+# This is the entry file for running the cluster simulation
+
 from __future__ import print_function
 import time
 import sys
@@ -29,7 +31,8 @@ num_itrs = 100 # Number of iterations
 
 alpha = 1.0/n_rows #sometimes we used 0.0001 # --- coefficient of l2 regularization
 
-learning_rate_schedule = 10.0*np.ones(num_itrs)
+# learning rate setup
+learning_rate_schedule = 10.0 * np.ones(num_itrs)
 # eta0=10.0
 # t0 = 90.0
 # learning_rate_schedule = [eta0*t0/(i + t0) for i in range(1,num_itrs+1)]
@@ -41,32 +44,34 @@ params.append(num_itrs)
 params.append(alpha)
 params.append(learning_rate_schedule)
 
+# number of processors
 if not size == n_procs:
     print("Number of processers doesn't match!")
     sys.exit(0)
 
+# real data or artificial data
 if not is_real:
     dataset = "artificial-data/" + str(n_rows) + "x" + str(n_cols)
 
+# if is coded implementation
 if is_coded:
-
-    if partitions:
+    if partitions:  # partial stragglers
         if(coded_ver == 1):
             partial_replication_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/partial/" + str((partitions-n_stragglers)*(n_procs-1)) + "/", n_stragglers, partitions, is_real, params)
         elif(coded_ver == 0):
             partial_coded_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/partial/" + str((partitions-n_stragglers)*(n_procs-1)) + "/", n_stragglers, partitions, is_real, params)
             
-    else:
-        if(coded_ver == 0):
+    else:           # total stragglers
+        if(coded_ver == 0): # Cyclcic
             coded_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", n_stragglers, is_real, params)
             
-        elif(coded_ver == 1):
+        elif(coded_ver == 1):   # Repitition
             replication_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", n_stragglers, is_real, params)
 
-        elif(coded_ver ==2):
+        elif(coded_ver ==2):    # Ignore
             avoidstragg_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", n_stragglers, is_real, params)
-else:
+else:   # not coded implementation == Naive
     naive_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", is_real, params)
 
-comm.Barrier()
-MPI.Finalize()
+comm.Barrier()  # Barrier synchronization
+MPI.Finalize()  # Terminate the MPI execution environment
