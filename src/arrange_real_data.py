@@ -86,12 +86,12 @@ if real_dataset=="amazon-dataset":
 
     for i in range(1, partitions+1):
         data_matrix = X_train[(i-1)*n_rows_per_worker:i*n_rows_per_worker, :]   # divide the train_data into parts
-        save_sparse_csr(output_dir+str(i), data_matrix)     # save files   
+        save_sparse_csr(os.path.join(output_dir,str(i)), data_matrix)     # save files   
         print("\t >>> Done with partition %d" % (i))
 
-    save_vector(y_train, output_dir + "label.dat")
-    save_vector(y_valid, output_dir + "label_test.dat")
-    save_sparse_csr(output_dir + "test_data", X_valid)
+    save_vector(y_train, os.path.join(output_dir, "label.dat"))
+    save_vector(y_valid, os.path.join(output_dir, "label_test.dat"))
+    save_sparse_csr(os.path.join(output_dir,"test_data"), X_valid)
 
 # dna dataset
 elif real_dataset=="dna-dataset/dna":
