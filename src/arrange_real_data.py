@@ -62,7 +62,7 @@ if real_dataset=="amazon-dataset":
     # split the data into train/val
     X_train, X_valid, y_train, y_valid = train_test_split(trainX, trainY, test_size=0.2, random_state=0)
 
-    encoder = preprocessing.OneHotEncoder(sparse=True)
+    encoder = preprocessing.OneHotEncoder(sparse_output=True)
     encoder.fit(np.vstack((X_train, X_valid)))
     X_train = encoder.transform(X_train)  # Returns a sparse matrix (see numpy.sparse)
     X_valid = encoder.transform(X_valid)

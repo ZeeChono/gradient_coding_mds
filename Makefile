@@ -11,7 +11,7 @@ N_PARTITIONS=10
 PARTIAL_CODED=0
 
 # Path to folder containing the data folders
-DATA_FOLDER=/dataset/
+DATA_FOLDER=dataset/
 
 # If using real data, enter 1
 IS_REAL=1
