@@ -19,14 +19,14 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     beta=np.zeros(n_features)
 
     # Loading data on workers
-    if (rank):
+    if (rank):  # if rank != 0
 
         if not is_real_data:
             X_current = load_data(os.path.join(input_dir, str(rank)+".dat"))
             y = load_data(os.path.join(input_dir, "label.dat"))
         else:
             X_current = load_sparse_csr(os.path.join(input_dir, str(rank)))
-            y = load_data(os.path.join(input_dir+"label.dat"))
+            y = load_data(os.path.join(input_dir, "label.dat"))
 
         rows_per_worker = X_current.shape[0]
         y_current=y[(rank-1)*rows_per_worker:rank*rows_per_worker]
@@ -146,20 +146,20 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
                 X_train = np.vstack((X_train, X_temp))
                 print(">> Loaded "+str(j))
         else:
-            X_train = load_sparse_csr(input_dir+"1")
+            X_train = load_sparse_csr(os.path.join(input_dir, "1"))     # load ~/dataset/amazon-dataset/2/1.npz
             for j in range(2,n_procs-1):
-                X_temp = load_sparse_csr(input_dir+str(j))
-                X_train = sps.vstack((X_train, X_temp))
+                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))   # load other npz
+                X_train = sps.vstack((X_train, X_temp))                     # then stack them vertically
 
-        y_train = load_data(input_dir+"label.dat")
+        y_train = load_data(os.path.join(input_dir, "label.dat"))
         y_train = y_train[0:X_train.shape[0]]
 
         # Load all testing data
-        y_test = load_data(input_dir + "label_test.dat")
+        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
         if not is_real_data:
             X_test = load_data(input_dir+"test_data.dat")
         else:
-            X_test = load_sparse_csr(input_dir+"test_data")
+            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
 
         n_train = X_train.shape[0]
         n_test = X_test.shape[0]
@@ -180,15 +180,15 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
         
-        output_dir = input_dir + "results/"
+        output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, output_dir+"naive_acc_training_loss.dat")
-        save_vector(testing_loss, output_dir+"naive_acc_testing_loss.dat")
-        save_vector(auc_loss, output_dir+"naive_acc_auc.dat")
-        save_vector(timeset, output_dir+"naive_acc_timeset.dat")
-        save_matrix(worker_timeset, output_dir+"naive_acc_worker_timeset.dat")
+        save_vector(training_loss, os.path.join(output_dir, "naive_acc_training_loss.dat"))
+        save_vector(testing_loss, os.path.join(output_dir, "naive_acc_testing_loss.dat"))
+        save_vector(auc_loss, os.path.join(output_dir, "naive_acc_auc.dat"))
+        save_vector(timeset, os.path.join(output_dir, "naive_acc_timeset.dat"))
+        save_matrix(worker_timeset, os.path.join(output_dir, "naive_acc_worker_timeset.dat"))
         print(">>> Done")
 
     comm.Barrier()

@@ -28,7 +28,7 @@ input_dir = input_dir+"/" if not input_dir[-1] == "/" else input_dir
 
 
 # ---- Modifiable parameters
-num_itrs = 100 # Number of iterations
+num_itrs = 5 # Number of iterations
 
 alpha = 1.0/n_rows #sometimes we used 0.0001 # --- coefficient of l2 regularization
 
@@ -44,11 +44,13 @@ params = []
 params.append(num_itrs)
 params.append(alpha)
 params.append(learning_rate_schedule)
+home = os.path.expanduser("~")  # home path
 
 # number of processors
 if not size == n_procs:
     print("Number of processers doesn't match!")
     sys.exit(0)
+####################################################
 
 # real data or artificial data
 if not is_real:
@@ -72,7 +74,7 @@ if is_coded:
         elif(coded_ver ==2):    # Ignore
             avoidstragg_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", n_stragglers, is_real, params)
 else:   # not coded implementation == Naive
-    naive_logistic_regression(n_procs, n_rows, n_cols, os.path.join(input_dir, dataset, str(n_procs-1)), is_real, params)
+    naive_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), is_real, params)
 
 comm.Barrier()  # Barrier synchronization
 MPI.Finalize()  # Terminate the MPI execution environment
