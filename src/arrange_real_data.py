@@ -25,9 +25,9 @@ np.random.seed(0)
 n_procs, input_dir, real_dataset, n_stragglers, n_partitions, partial_coded  = [x for x in sys.argv[1:]]
 n_procs, n_stragglers, n_partitions, partial_coded = int(n_procs), int(n_stragglers), int(n_partitions), int(partial_coded)
 
-# input_dir = input_dir + real_dataset + "/"
+# declare cross-platform dataset directory location
 home = os.expanduser("~")
-input_dir = os.path.join(home, real_dataset)    # input directory under the home
+input_dir = os.path.join(home, input_dir, real_dataset)    # input directory under the home
 
 # load relevant data
 if real_dataset=="amazon-dataset":
