@@ -26,7 +26,7 @@ n_procs, input_dir, real_dataset, n_stragglers, n_partitions, partial_coded  = [
 n_procs, n_stragglers, n_partitions, partial_coded = int(n_procs), int(n_stragglers), int(n_partitions), int(partial_coded)
 
 # declare cross-platform dataset directory location
-home = os.expanduser("~")
+home = os.path.expanduser("~")
 input_dir = os.path.join(home, input_dir, real_dataset)    # input directory under the home
 
 # load relevant data
