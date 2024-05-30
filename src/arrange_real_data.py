@@ -36,7 +36,6 @@ if real_dataset=="amazon-dataset":
     trainData = pd.read_csv(os.path.join(input_dir, 'train.csv'))
     trainX = trainData.loc[:,'RESOURCE':].values     # input values
     trainY = trainData['ACTION'].values              # output value
-    pdb.set_trace()
     ## TODO: The sklearn document says this encoder should only be applied to the output?
     ## the loop below will convert the numbers into unique classes from 0 to ...
     relabeler = preprocessing.LabelEncoder()
@@ -70,17 +69,15 @@ if real_dataset=="amazon-dataset":
     n_rows, n_cols = X_train.shape
     print("No. of training samples = %d, Dimension = %d"%(n_rows, n_cols))
     print("No. of testing samples = %d, Dimension = %d"%(X_valid.shape[0], X_valid.shape[1]))
-
-    pdb.set_trace()
     
     # Create output directory
     output_dir = input_dir
     if not partial_coded:
-        output_dir = output_dir + str(n_procs-1) + "/"
+        output_dir = os.path.join(output_dir, str(n_procs-1))
         partitions = n_procs-1
     else:
-        output_dir = output_dir + "partial/" + str((n_procs-1)*(n_partitions - n_stragglers))+"/"
-        partitions = (n_procs-1)*(n_partitions - n_stragglers)
+        output_dir = os.path.join(output_dir, "partial", str((n_procs-1)*(n_partitions - n_stragglers)))
+        partitions = (n_procs-1)*(n_partitions-n_stragglers)
 
     n_rows_per_worker = n_rows//partitions      # pack and distribute the data into #workers zips
 
@@ -89,7 +86,7 @@ if real_dataset=="amazon-dataset":
 
     for i in range(1, partitions+1):
         data_matrix = X_train[(i-1)*n_rows_per_worker:i*n_rows_per_worker, :]   # divide the train_data into parts
-        save_sparse_csr(output_dir+str(i), data_matrix)        
+        save_sparse_csr(output_dir+str(i), data_matrix)     # save files   
         print("\t >>> Done with partition %d" % (i))
 
     save_vector(y_train, output_dir + "label.dat")
