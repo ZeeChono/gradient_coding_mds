@@ -22,11 +22,11 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     if (rank):
 
         if not is_real_data:
-            X_current = load_data(input_dir+str(rank)+".dat")
-            y = load_data(input_dir+"label.dat")
+            X_current = load_data(os.path.join(input_dir, str(rank)+".dat"))
+            y = load_data(os.path.join(input_dir, "label.dat"))
         else:
-            X_current = load_sparse_csr(input_dir+str(rank))
-            y = load_data(input_dir+"label.dat")
+            X_current = load_sparse_csr(os.path.join(input_dir, str(rank)))
+            y = load_data(os.path.join(input_dir+"label.dat"))
 
         rows_per_worker = X_current.shape[0]
         y_current=y[(rank-1)*rows_per_worker:rank*rows_per_worker]
