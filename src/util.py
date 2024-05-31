@@ -132,5 +132,5 @@ def calculate_indexA(boolvec):
 
     return int(ind)
 
-def calculate_loss(y,predy,n_samples):
+def calculate_loss(y,predy,n_samples):  # log loss
     return np.sum(np.log(1+np.exp(-np.multiply(y,predy))))/n_samples

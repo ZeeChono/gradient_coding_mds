@@ -41,9 +41,9 @@ learning_rate_schedule = 10.0 * np.ones(num_itrs)
 # -------------------------------------------------------------------------------------------------------------------------------
 
 params = []
-params.append(num_itrs)
-params.append(alpha)
-params.append(learning_rate_schedule)
+params.append(num_itrs)                 # params[0] = num of iters
+params.append(alpha)                    # params[1] = alpha (l2 regularization)
+params.append(learning_rate_schedule)   # params[2] = learning rate per iter
 home = os.path.expanduser("~")  # home path
 
 # number of processors
