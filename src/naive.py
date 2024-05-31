@@ -9,13 +9,14 @@ import time
 from mpi4py import MPI
 
 def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real_data, params):
-
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    
-    num_itrs = params[0]          # num of iters
 
+    ##########################################################################
+    ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
+    ##########################################################################
+    num_itrs = params[0]          # num of iters
     beta=np.zeros(n_features)
 
     # Loading data on workers
@@ -46,7 +47,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         g = np.zeros(n_features)
         betaset = np.zeros((num_itrs, n_features))
         timeset = np.zeros(num_itrs)
-        worker_timeset=np.zeros((num_itrs, n_procs-1))    # timer on the worker side
+        worker_timeset=np.zeros((num_itrs, n_procs-1))    # each iter, how long does it take each worker to compute g
         # requests list
         request_set = []        # request_set contains recv_reqs (line 74-77)
         recv_reqs = []
@@ -79,6 +80,10 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     ########################################################################################################
     comm.Barrier()
 
+
+    ##########################################################################
+    ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
+    ##########################################################################
     if rank==0:
         # timer on the master side
         orig_start_time= time.time()
@@ -141,7 +146,10 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     #####################################################################################################
     comm.Barrier()
 
-    # Wrapping up
+
+    ##########################################################################
+    ## FINAL STEP: TRAINING/TEST LOSS COMPUTATION AND SAVE WORK
+    ##########################################################################
     if rank==0:
         elapsed_time = time.time() - orig_start_time
         print ("Total Time Elapsed: %.3f" %(elapsed_time))
