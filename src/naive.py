@@ -16,8 +16,8 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     ##########################################################################
     ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
     ##########################################################################
-    num_itrs = params[0]          # num of iters
-    beta=np.zeros(n_features)
+    num_itrs = params[0]            # num of iters
+    beta=np.zeros(n_features)       # initialize the model (start from 0)
 
     # Loading data on workers
     if (rank):  # if rank != 0
@@ -35,7 +35,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     # Initializing relevant variables
     if (rank):  # workers
 
-        predy = X_current.dot(beta) # prediction?
+        predy = X_current.dot(beta) # prediction y^ = beta(model) * x_input
         g = -X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))   # logistic regression
         # message buffers
         send_req = MPI.Request()
@@ -115,19 +115,20 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
                 g += msgBuffers[src-1]   # add the partial gradients
                 cnt_completed += 1
 
-            grad_multiplier = eta0[i]/n_samples
+            grad_multiplier = eta0[i]/n_samples     # learning rate at i-th iter / num of samples
             # ---- update step for gradient descent
             # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
 
             # ---- updates for accelerated gradient descent
+            ## TODO: check what this accelerated gradient descent come from -- NAG algorithm
             theta = 2.0/(i+2.0)
             ytemp = (1-theta)*beta + theta*utemp
             betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
             utemp = beta + (betatemp-beta)*(1/theta)
-            beta[:] = betatemp
+            beta[:] = betatemp      # the same model to broadcast for the next iteration
             
             timeset[i] = time.time() - start_time
-            betaset[i,:] = beta
+            betaset[i,:] = beta     # model at the i-th iteration
 
         else:
             # workers calculate the partial gradients and send it back
@@ -137,8 +138,8 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             # if not sendTestBuf[0]:
             #     send_req.Cancel()
 
-            predy = X_current.dot(beta)
-            # line38: g = -X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))
+            predy = X_current.dot(beta) # new prediction
+            # calculate new partial gradients
             g = X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))
             g *= -1
             send_req = comm.Isend([g, MPI.DOUBLE], dest=0, tag=i)
@@ -187,6 +188,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         from sklearn.metrics import roc_curve, auc
 
         for i in range(num_itrs):
+            # iterating over model param--beta at each iteration
             beta = np.squeeze(betaset[i,:])
             predy_train = X_train.dot(beta)
             predy_test = X_test.dot(beta)

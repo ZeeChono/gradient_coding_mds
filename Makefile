@@ -18,8 +18,8 @@ IS_REAL=1
 
 # Dataset directory name
 DATASET=amazon-dataset
-N_ROWS=26210
-N_COLS=241915
+N_ROWS=26210		# num of input samples, ie. X1, X2, X3... Xd
+N_COLS=241915		# num of features per input, ie. x1, x2, x3... xp
 
 # Note that DATASET is automatically set to artificial-data/ (n_rows)x(n_cols)/... if IS_REAL is set to 0 \
  or artificial-data/partial/ (n_rows)x(n_cols)/... if PARTIAL_CODED is also set to 1
