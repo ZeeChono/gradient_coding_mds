@@ -12,6 +12,7 @@ from partial_replication import *
 from partial_coded import *
 import numpy as np
 from mpi4py import MPI
+import os
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -32,7 +33,7 @@ num_itrs = 100 # Number of iterations
 alpha = 1.0/n_rows #sometimes we used 0.0001 # --- coefficient of l2 regularization
 
 # learning rate setup
-learning_rate_schedule = 10.0 * np.ones(num_itrs)
+learning_rate_schedule = 10.0 * np.ones(num_itrs)   # learning rate is 10.0 for each iter
 # eta0=10.0
 # t0 = 90.0
 # learning_rate_schedule = [eta0*t0/(i + t0) for i in range(1,num_itrs+1)]
@@ -40,14 +41,16 @@ learning_rate_schedule = 10.0 * np.ones(num_itrs)
 # -------------------------------------------------------------------------------------------------------------------------------
 
 params = []
-params.append(num_itrs)
-params.append(alpha)
-params.append(learning_rate_schedule)
+params.append(num_itrs)                 # params[0] = num of iters
+params.append(alpha)                    # params[1] = alpha (l2 regularization)
+params.append(learning_rate_schedule)   # params[2] = learning rate per iter
+home = os.path.expanduser("~")  # home path
 
 # number of processors
 if not size == n_procs:
     print("Number of processers doesn't match!")
     sys.exit(0)
+####################################################
 
 # real data or artificial data
 if not is_real:
@@ -71,7 +74,7 @@ if is_coded:
         elif(coded_ver ==2):    # Ignore
             avoidstragg_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", n_stragglers, is_real, params)
 else:   # not coded implementation == Naive
-    naive_logistic_regression(n_procs, n_rows, n_cols, input_dir + dataset +"/" + str(n_procs-1) + "/", is_real, params)
+    naive_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), is_real, params)
 
 comm.Barrier()  # Barrier synchronization
 MPI.Finalize()  # Terminate the MPI execution environment

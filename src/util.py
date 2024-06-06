@@ -13,7 +13,7 @@ def load_data(input_file):
     mydata = np.loadtxt(input_file,dtype=float)
     return mydata
     
-def save_sparse_csr(filename,array):
+def save_sparse_csr(filename,array):    # Sparse matrices: format -> compressed sparse row (CSR)
     np.savez(filename,data = array.data ,indices=array.indices,
              indptr =array.indptr, shape=array.shape )
 
@@ -132,5 +132,5 @@ def calculate_indexA(boolvec):
 
     return int(ind)
 
-def calculate_loss(y,predy,n_samples):
-    return np.sum(np.log(1+np.exp(-np.multiply(y,predy))))/n_samples
+def calculate_loss(y,predy,n_samples):  # log loss
+    return np.sum( np.log(1 + np.exp(-np.multiply(y,predy))) ) / n_samples
