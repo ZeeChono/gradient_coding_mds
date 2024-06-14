@@ -7,6 +7,7 @@ import numpy as np
 import scipy.sparse as sps
 import time
 from mpi4py import MPI
+import pdb
 
 def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real_data, params):
     comm = MPI.COMM_WORLD
@@ -36,6 +37,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     if (rank):  # workers
 
         predy = X_current.dot(beta) # prediction y^ = beta(model) * x_input
+
         g = -X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))   # logistic regression
         # message buffers
         send_req = MPI.Request()
@@ -187,18 +189,23 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
 
         from sklearn.metrics import roc_curve, auc
 
+        avg_time=0.0
         for i in range(num_itrs):
             # iterating over model param--beta at each iteration
             beta = np.squeeze(betaset[i,:])
             predy_train = X_train.dot(beta)
             predy_test = X_test.dot(beta)
-            training_loss[i] = calculate_loss(y_train, predy_train, n_train)
+            # predy_test = 1 / (1 + np.exp(-predy_test))
+            # if i == num_itrs-1:
+            #     pdb.set_trace()
+            training_loss[i] = calculate_loss(y_train, predy_train, n_train)        # TODO: this doesn't make sense, the prediction is only the linear part and hasn't been sigmoid yet
             testing_loss[i] = calculate_loss(y_test, predy_test, n_test)
             # area under ROC curve
             fpr, tpr, thresholds = roc_curve(y_test,predy_test, pos_label=1)
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
-        
+            avg_time += timeset[i]
+
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -208,6 +215,6 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         save_vector(auc_loss, os.path.join(output_dir, "naive_acc_auc.dat"))
         save_vector(timeset, os.path.join(output_dir, "naive_acc_timeset.dat"))
         save_matrix(worker_timeset, os.path.join(output_dir, "naive_acc_worker_timeset.dat"))
-        print(">>> Done")
+        print(f">>> Done with avg iter_time: {avg_time / num_itrs}")
 
     comm.Barrier()
