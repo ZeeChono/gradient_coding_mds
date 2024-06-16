@@ -111,6 +111,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             while cnt_completed < n_procs-1:
                 req_done = MPI.Request.Waitany(request_set[i], status)  # Wait for previously initiated request_set to complete
                 src = status.Get_source()
+                # print(f"from source: {src}")    # src = 1 and 2 which is the same as rank value
                 worker_timeset[i,src-1] = time.time()-start_time
                 request_set[i].pop(req_done)    # pop that request
                 

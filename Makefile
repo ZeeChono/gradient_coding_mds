@@ -17,6 +17,7 @@ DATA_FOLDER=dataset
 IS_REAL=1
 
 # Dataset directory name
+# eg. /home/ubuntu/dataset/amazon-dataset/...
 DATASET=amazon-dataset
 N_ROWS=26210		# num of input samples, ie. X1, X2, X3... Xd
 N_COLS=241915		# num of features per input, ie. x1, x2, x3... xp
@@ -37,7 +38,7 @@ cyccoded:
 	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 0
 
 repcoded:
-	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 1
+	mpirun -np $(N_PROCS) -H localhost,w1,w2 python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 1
 
 avoidstragg:
 	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 2

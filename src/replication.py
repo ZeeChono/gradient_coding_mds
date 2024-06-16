@@ -20,20 +20,26 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
         print("Error: n_workers must be multiple of n_stragglers+1!")
         sys.exit(0)
 
-    rounds = params[0]
+    ##########################################################################
+    ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
+    ##########################################################################
+    num_itrs = params[0]            # num of iters
+    beta = np.zeros(n_features)     # initialize the model (start from 0)
 
-    beta=np.zeros(n_features)
+    # TODO: 17:04 I made them floor division instead
+    rows_per_worker = n_samples//(n_procs-1)
+    print(rows_per_worker)
 
-    rows_per_worker=n_samples/(n_procs-1)
-    n_groups=n_workers/(n_stragglers+1)
+    ## TODO: this n_group is not number of groups, but rather #workers per group
+    n_groups = n_workers // (n_stragglers+1)     # group size: #workers
 
-    # Loading the data
+
+
+    # Loading the data on workers
     if (rank):
-
         if not is_real_data:
-
-            X_current=np.zeros(((1+n_stragglers)*rows_per_worker,n_features))
-            y_current=np.zeros((1+n_stragglers)*rows_per_worker)
+            X_current = np.zeros(((1+n_stragglers)*rows_per_worker, n_features))
+            y_current = np.zeros((1+n_stragglers)*rows_per_worker)
             y = load_data(input_dir+"label.dat")
 
             for i in range(1+n_stragglers):
@@ -44,44 +50,49 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 X_current[i*rows_per_worker:(i+1)*rows_per_worker,:]=load_data(input_dir+str(idx+1)+".dat")
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[idx*rows_per_worker:(idx+1)*rows_per_worker]
 
-        else:
+        else:   # real data
+            y = load_data(os.path.join(input_dir, "label.dat"))
+            ## For real dataset, read in one example file and determine how many samples we have
+            x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
+            rows_per_worker = x_read_temp.shape[0]
 
-            y_current=np.zeros((1+n_stragglers)*rows_per_worker)
-            y = load_data(input_dir+"label.dat")
-            for i in range(1+n_stragglers):
-                a=(rank-1)/(n_stragglers+1) # index of group
-                b=(rank-1)%(n_stragglers+1) # position inside the group
-                idx=(n_stragglers+1)*a+(b+i)%(n_stragglers+1)
+            y_current = np.zeros((1+n_stragglers)*rows_per_worker)
+            for i in range(1+n_stragglers):     # 0 to s+1
+                
+                a = (rank-1) // (n_stragglers+1) # index of group TODO: make this floor division as well
+                b = (rank-1) % (n_stragglers+1) # position inside the group
+                idx = (n_stragglers+1)*a + (b+i)%(n_stragglers+1)   # data indexer
+                
                 
                 if i==0:
-                    X_current=load_sparse_csr(input_dir+str(idx+1))
+                    X_current = load_sparse_csr(os.path.join(input_dir, str(idx+1)))
                 else:
-                    X_temp = load_sparse_csr(input_dir+str(idx+1))
+                    X_temp = load_sparse_csr(os.path.join(input_dir, str(idx+1)))
                     X_current = sps.vstack((X_current,X_temp))
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[idx*rows_per_worker:(idx+1)*rows_per_worker]
+                print(f"Rank {rank}: loop {i} with a={a}, b={b}, idx={idx} and X_cur has shape: {X_current.shape}")
 
     # Initializing relevant variables            
-    if (rank):
-
+    if (rank):  # workers
         predy = X_current.dot(beta)
         g = -X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))
+        # message buffers
         send_req = MPI.Request()
         recv_reqs = []
 
-    else:
-
+    else:   # master
         msgBuffers = [np.zeros(n_features) for i in range(n_procs-1)]
-        g=np.zeros(n_features)
-        betaset = np.zeros((rounds, n_features))
-        timeset = np.zeros(rounds)
-        worker_timeset=np.zeros((rounds, n_procs-1))
+        g = np.zeros(n_features)
+        betaset = np.zeros((num_itrs, n_features))
+        timeset = np.zeros(num_itrs)
+        worker_timeset=np.zeros((num_itrs, n_procs-1))  # each iter, how long does it take each worker to compute g
 
         request_set = []
         recv_reqs = []
         send_set = []
 
         cnt_groups = 0
-        completed_groups=np.ndarray(n_groups,dtype=bool)
+        completed_groups = np.ndarray(n_groups,dtype=bool)
         completed_workers = np.ndarray(n_procs-1,dtype=bool)
 
         status = MPI.Status()
@@ -92,13 +103,13 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
 
     # Posting all Irecv requests for master and workers
     if (rank):
-
-        for i in range(rounds):
+        # workers listens to the beta(model) from the master
+        for i in range(num_itrs):
             req = comm.Irecv([beta, MPI.DOUBLE], source=0, tag=i)
             recv_reqs.append(req)
     else:
-
-        for i in range(rounds):
+        # master listens to the message buffer
+        for i in range(num_itrs):
             recv_reqs = []
             for j in range(1,n_procs):
                 req = comm.Irecv([msgBuffers[j-1], MPI.DOUBLE], source=j, tag=i)
@@ -107,14 +118,19 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
 
     ###########################################################################################
     comm.Barrier()
+
+
+
+    ##########################################################################
+    ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
+    ##########################################################################
     if rank == 0:
         print("---- Starting Replication Iterations for " +str(n_stragglers) + " stragglers ----")
         orig_start_time = time.time()
 
-    for i in range(rounds):
+    for i in range(num_itrs):
         if rank==0:
 
-            
             if(i%10 == 0):
                 print("\t >>> At Iteration %d" %(i))
 
@@ -130,14 +146,15 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 sreq = comm.Isend([beta, MPI.DOUBLE], dest = l, tag = i)
                 send_set.append(sreq)
 
-            while cnt_groups<n_groups:
+            # as long as one group is intact, total gradient is guaranteed
+            while cnt_groups < n_groups:    # exit when any of the group has finished
                 req_done = MPI.Request.Waitany(request_set[i], status)
-                src = status.Get_source()
+                src = status.Get_source()   # get the info source
                 worker_timeset[i,src-1]=time.time()-start_time
                 request_set[i].pop(req_done)
 
                 completed_workers[src-1] = True
-                groupid = (src-1)/(n_stragglers+1)
+                groupid = (src-1) // (n_stragglers+1) # TODO: matches row 62: a = rank-1 // s+1
 
                 if (not completed_groups[groupid]):
                     completed_groups[groupid]=True
@@ -158,6 +175,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             timeset[i] = time.time() - start_time
 
             betaset[i,:] = beta
+
             ind_set = [l for l in range(1,n_procs) if not completed_workers[l-1]]
             for l in ind_set:
                 worker_timeset[i,l-1]=-1
@@ -181,6 +199,12 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             
     #############################################################################################
     comm.Barrier()
+
+
+
+    ##########################################################################
+    ## FINAL STEP: TRAINING/TEST LOSS COMPUTATION AND SAVE WORK
+    ##########################################################################
     if rank==0:
         elapsed_time= time.time() - orig_start_time
         print ("Total Time Elapsed: %.3f" %(elapsed_time))
@@ -191,31 +215,31 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 X_temp = load_data(input_dir+str(j)+".dat")
                 X_train = np.vstack((X_train, X_temp))
         else:
-            X_train = load_sparse_csr(input_dir+"1")
+            X_train = load_sparse_csr(os.path.join(input_dir, "1")) # load ~/dataset/amazon-dataset/2/1.npz
             for j in range(2,n_procs-1):
-                X_temp = load_sparse_csr(input_dir+str(j))
+                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))
                 X_train = sps.vstack((X_train, X_temp))
-
-        y_train = load_data(input_dir+"label.dat")
+        y_train = load_data(os.path.join(input_dir, "label.dat"))
         y_train = y_train[0:X_train.shape[0]]
 
         # Load all testing data
-        y_test = load_data(input_dir + "label_test.dat")
+        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
         if not is_real_data:
             X_test = load_data(input_dir+"test_data.dat")
         else:
-            X_test = load_sparse_csr(input_dir+"test_data")
-
+            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
+        # number of samples
         n_train = X_train.shape[0]
         n_test = X_test.shape[0]
 
-        training_loss = np.zeros(rounds)
-        testing_loss = np.zeros(rounds)
-        auc_loss = np.zeros(rounds)
+        training_loss = np.zeros(num_itrs)
+        testing_loss = np.zeros(num_itrs)
+        auc_loss = np.zeros(num_itrs)
 
         from sklearn.metrics import roc_curve, auc
 
-        for i in range(rounds):
+        avg_time=0.0
+        for i in range(num_itrs):
             beta = np.squeeze(betaset[i,:])
             predy_train = X_train.dot(beta)
             predy_test = X_test.dot(beta)
@@ -224,16 +248,17 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             fpr, tpr, thresholds = roc_curve(y_test,predy_test, pos_label=1)
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
-        
-        output_dir = input_dir + "results/"
+            avg_time += timeset[i]
+
+        output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, output_dir+"replication_acc_%d_training_loss.dat"%(n_stragglers))
-        save_vector(testing_loss, output_dir+"replication_acc_%d_testing_loss.dat"%(n_stragglers))
-        save_vector(auc_loss, output_dir+"replication_acc_%d_auc.dat"%(n_stragglers))
-        save_vector(timeset, output_dir+"replication_acc_%d_timeset.dat"%(n_stragglers))
-        save_matrix(worker_timeset, output_dir+"replication_acc_%d_worker_timeset.dat"%(n_stragglers))
-        print(">>> Done")
+        save_vector(training_loss, os.path.join(output_dir, "replication_acc_%d_training_loss.dat"%(n_stragglers)))
+        save_vector(testing_loss, os.path.join(output_dir, "replication_acc_%d_testing_loss.dat"%(n_stragglers)))
+        save_vector(auc_loss, os.path.join(output_dir, "replication_acc_%d_auc.dat"%(n_stragglers)))
+        save_vector(timeset, os.path.join(output_dir, "replication_acc_%d_timeset.dat"%(n_stragglers)))
+        save_matrix(worker_timeset, os.path.join(output_dir, "replication_acc_%d_worker_timeset.dat"%(n_stragglers)))
+        print(f">>> Done with avg iter_time: {avg_time / num_itrs}")
 
     comm.Barrier()
