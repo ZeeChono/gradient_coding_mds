@@ -31,7 +31,8 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     print(rows_per_worker)
 
     ## TODO: this n_group is not number of groups, but rather #workers per group
-    n_groups = n_workers // (n_stragglers+1)     # group size: #workers
+    # assume n_workers is a multiple of s+1
+    workers_per_group = n_workers // (n_stragglers+1)     # group size: #workers
 
 
 
@@ -55,22 +56,28 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             ## For real dataset, read in one example file and determine how many samples we have
             x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
             rows_per_worker = x_read_temp.shape[0]
-
             y_current = np.zeros((1+n_stragglers)*rows_per_worker)
-            for i in range(1+n_stragglers):     # 0 to s+1
-                
-                a = (rank-1) // (n_stragglers+1) # index of group TODO: make this floor division as well
-                b = (rank-1) % (n_stragglers+1) # position inside the group
-                idx = (n_stragglers+1)*a + (b+i)%(n_stragglers+1)   # data indexer
-                
-                
+
+            for i in range(1+n_stragglers):     # each worker needs to load s+1 data partitions
+                ## TODO: 6-17 10:00 understand this...
+                ## TODO: 6-17 11:00 Modify the algorithm of group id and inner group index, only affect data loader
+                # a = (rank-1) // (n_stragglers+1) # index of group TODO: make this floor division as well
+                group_id = (rank-1) // (workers_per_group)
+                # b = (rank-1) % (n_stragglers+1) # position inside the group
+                group_index = (rank-1) % (workers_per_group)
+                # idx = (n_stragglers+1)*a + (b+i)%(n_stragglers+1)   # data indexer
+                data_id = group_index*(n_stragglers+1) + i
+
                 if i==0:
-                    X_current = load_sparse_csr(os.path.join(input_dir, str(idx+1)))
+                    # X_current = load_sparse_csr(os.path.join(input_dir, str(idx+1)))
+                    X_current = load_sparse_csr(os.path.join(input_dir, str(data_id+1)))
                 else:
-                    X_temp = load_sparse_csr(os.path.join(input_dir, str(idx+1)))
+                    # X_temp = load_sparse_csr(os.path.join(input_dir, str(idx+1)))
+                    X_temp = load_sparse_csr(os.path.join(input_dir, str(data_id+1)))
                     X_current = sps.vstack((X_current,X_temp))
-                y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[idx*rows_per_worker:(idx+1)*rows_per_worker]
-                print(f"Rank {rank}: loop {i} with a={a}, b={b}, idx={idx} and X_cur has shape: {X_current.shape}")
+                # y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[idx*rows_per_worker:(idx+1)*rows_per_worker]
+                y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[data_id*rows_per_worker:(data_id+1)*rows_per_worker]
+                print(f"Rank {rank}: loop {i} with a={group_id}, b={group_index}, idx={data_id} and X_cur has shape: {X_current.shape}")
 
     # Initializing relevant variables            
     if (rank):  # workers
@@ -92,7 +99,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
         send_set = []
 
         cnt_groups = 0
-        completed_groups = np.ndarray(n_groups,dtype=bool)
+        completed_groups = np.ndarray(workers_per_group,dtype=bool)
         completed_workers = np.ndarray(n_procs-1,dtype=bool)
 
         status = MPI.Status()
@@ -136,8 +143,8 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
 
             send_set[:] = []
             g[:]=0
-            completed_groups[:]=False
-            completed_workers[:]=False
+            completed_groups[:]=False       # len = workers_per_group
+            completed_workers[:]=False      # len = #workers
             cnt_groups=0
             
             start_time = time.time()
@@ -147,17 +154,23 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 send_set.append(sreq)
 
             # as long as one group is intact, total gradient is guaranteed
-            while cnt_groups < n_groups:    # exit when any of the group has finished
+            ## Note: every group is a replica of the other, if we have all the indices finished, then we good
+            ## workers_per_group = n_workers / s+1
+            while cnt_groups < workers_per_group:    # exit when any of the group has finished
                 req_done = MPI.Request.Waitany(request_set[i], status)
                 src = status.Get_source()   # get the info source
+                print(f"Received src: {src}")
                 worker_timeset[i,src-1]=time.time()-start_time
                 request_set[i].pop(req_done)
 
                 completed_workers[src-1] = True
-                groupid = (src-1) // (n_stragglers+1) # TODO: matches row 62: a = rank-1 // s+1
 
-                if (not completed_groups[groupid]):
-                    completed_groups[groupid]=True
+                ## TODO: instead of doing group_id, shouldn't we care about the index in group? 
+                # groupid = (src-1) // (n_stragglers+1) # original, TODO: matches row 62: a = rank-1 // s+1
+                group_index = (src-1) % (workers_per_group)
+
+                if (not completed_groups[group_index]): # len=workers_per_group
+                    completed_groups[group_index]=True
                     g += msgBuffers[src-1]
                     cnt_groups += 1
 
