@@ -190,8 +190,9 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         for i in range(num_itrs):
             # iterating over model param--beta at each iteration
             beta = np.squeeze(betaset[i,:])
-            predy_train = X_train.dot(beta)
-            predy_test = X_test.dot(beta)
+            predy_train = adjusted_sigmoid(X_train.dot(beta))
+            predy_test = adjusted_sigmoid(X_test.dot(beta))
+
             training_loss[i] = calculate_loss(y_train, predy_train, n_train)
             testing_loss[i] = calculate_loss(y_test, predy_test, n_test)
             # area under ROC curve

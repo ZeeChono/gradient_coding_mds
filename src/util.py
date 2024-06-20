@@ -134,3 +134,6 @@ def calculate_indexA(boolvec):
 
 def calculate_loss(y,predy,n_samples):  # log loss
     return np.sum( np.log(1 + np.exp(-np.multiply(y,predy))) ) / n_samples
+
+def adjusted_sigmoid(z):
+    return 2 / (1 + np.exp(-z)) - 1
