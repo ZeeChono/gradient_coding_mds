@@ -203,20 +203,20 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 X_train = np.vstack((X_train, X_temp))
                 print(">> Loaded "+str(j))
         else:
-            X_train = load_sparse_csr(input_dir+"1")
+            X_train = load_sparse_csr(os.path.join(input_dir,"1"))
             for j in range(2,n_procs-1):
-                X_temp = load_sparse_csr(input_dir+str(j))
+                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))
                 X_train = sps.vstack((X_train, X_temp))
 
-        y_train = load_data(input_dir+"label.dat")
+        y_train = load_data(os.path.join(input_dir, "label.dat"))
         y_train = y_train[0:X_train.shape[0]]
 
         # Load all testing data
-        y_test = load_data(input_dir + "label_test.dat")
+        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
         if not is_real_data:
             X_test = load_data(input_dir+"test_data.dat")
         else:
-            X_test = load_sparse_csr(input_dir+"test_data")
+            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
 
         n_train = X_train.shape[0]
         n_test = X_test.shape[0]
@@ -237,15 +237,15 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
         
-        output_dir = input_dir + "results/"
+        output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, output_dir+"coded_acc_%d_training_loss.dat"%(n_stragglers))
-        save_vector(testing_loss, output_dir+"coded_acc_%d_testing_loss.dat"%(n_stragglers))
-        save_vector(auc_loss, output_dir+"coded_acc_%d_auc.dat"%(n_stragglers))
-        save_vector(timeset, output_dir+"coded_acc_%d_timeset.dat"%(n_stragglers))
-        save_matrix(worker_timeset, output_dir+"coded_acc_%d_worker_timeset.dat"%(n_stragglers))
+        save_vector(training_loss, os.path.join(output_dir, "coded_acc_%d_training_loss.dat"%(n_stragglers)))
+        save_vector(testing_loss, os.path.join(output_dir, "coded_acc_%d_testing_loss.dat"%(n_stragglers)))
+        save_vector(auc_loss, os.path.join(output_dir, "coded_acc_%d_auc.dat"%(n_stragglers)))
+        save_vector(timeset, os.path.join(output_dir, "coded_acc_%d_timeset.dat"%(n_stragglers)))
+        save_matrix(worker_timeset, os.path.join(output_dir, "coded_acc_%d_worker_timeset.dat"%(n_stragglers)))
         print(">>> Done")
 
     comm.Barrier()
