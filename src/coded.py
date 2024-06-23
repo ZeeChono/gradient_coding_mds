@@ -18,7 +18,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     rounds=params[0]
 
     n_workers=n_procs-1
-    rows_per_worker=n_samples/(n_procs-1)
+    rows_per_worker=n_samples/(n_procs-1)   # actually equals to the rows per partition
 
     # Loading the data
     if (rank):
@@ -32,7 +32,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 X_current[i*rows_per_worker:(i+1)*rows_per_worker,:] = load_data(input_dir+str((rank-1+i)%n_workers+1)+".dat")
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker] = y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
         else:
-
+            #the total number of rows of a worker is (1+n_stragglers)*(rows per partition)
             y_current=np.zeros((1+n_stragglers)*rows_per_worker)
             y = load_data(input_dir+"label.dat")
             for i in range(1+n_stragglers):
@@ -43,6 +43,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                     X_temp = load_sparse_csr(input_dir+str((rank-1+i)%n_workers+1))
                     X_current = sps.vstack((X_current,X_temp))
 
+                #put the (rank-1+i%workers)-th partition of y into the i-th partition of y_current
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
 
     # Initializing relevant variables
@@ -132,6 +133,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 sreq = comm.Isend([beta, MPI.DOUBLE], dest = l, tag = i)
                 send_set.append(sreq)            
             
+            #todo: make sure the judgement of the completion is not too strict
             while cnt_completed < n_procs-1-n_stragglers:
                 req_done = MPI.Request.Waitany(request_set[i], status)
                 src = status.Get_source()
@@ -141,10 +143,10 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 cnt_completed += 1
                 completed_workers[src-1] = True
 
-            
+            #completed_ind_set is the index that the workers have completed
             completed_ind_set = [l for l in range(n_procs-1) if completed_workers[l]]
-            A_row[0,completed_ind_set] = np.linalg.lstsq(B[completed_ind_set,:].T,np.ones(n_workers))[0]
-            g = np.squeeze(np.dot(A_row, msgBuffers))
+            A_row[0,completed_ind_set] = np.linalg.lstsq(B[completed_ind_set,:].T,np.ones(n_workers))[0]  # A_row is a two dimensional array, but only the first row is used for the weight of each worker
+            g = np.squeeze(np.dot(A_row, msgBuffers)) # get the weighted sum of the gradients from workers and sqeeze it to a one dimensional array
             
             # case_idx = calculate_indexA(completed_stragglers)
             # g = np.dot(A[case_idx,ind_set],tmpBuff)
