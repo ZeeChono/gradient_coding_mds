@@ -45,9 +45,9 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             for i in range(1+n_stragglers):
                 print((rank-1+i)%n_workers+1)                
                 if i==0:
-                    X_current=load_sparse_csr(input_dir+str((rank-1+i)%n_workers+1))
+                    X_current=load_sparse_csr(os.path.join(input_dir, str((rank-1+i)%n_workers+1)))
                 else:
-                    X_temp = load_sparse_csr(input_dir+str((rank-1+i)%n_workers+1))
+                    X_temp = load_sparse_csr(os.path.join(input_dir, str((rank-1+i)%n_workers+1)))
                     X_current = sps.vstack((X_current,X_temp))
 
                 #put the (rank-1+i%workers)-th partition of y into the i-th partition of y_current
