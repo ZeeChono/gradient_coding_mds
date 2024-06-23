@@ -43,7 +43,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             y_current=np.zeros((1+n_stragglers)*rows_per_worker)
 
             for i in range(1+n_stragglers):
-                                
+                print((rank-1+i)%n_workers+1)                
                 if i==0:
                     X_current=load_sparse_csr(input_dir+str((rank-1+i)%n_workers+1))
                 else:
