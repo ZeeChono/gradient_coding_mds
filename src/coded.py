@@ -18,7 +18,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     rounds=params[0]
 
     n_workers=n_procs-1
-    rows_per_worker=n_samples/(n_procs-1)   # actually equals to the rows per partition
+    rows_per_worker=n_samples//(n_procs-1)   # actually equals to the rows per partition
 
     # Loading the data
     if (rank):
@@ -33,8 +33,15 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker] = y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
         else:
             #the total number of rows of a worker is (1+n_stragglers)*(rows per partition)
+            y = load_data(os.path.join(input_dir, "label.dat"))
+
+            #get the size of a partition
+            x_read_temp = load_sparse_csr(os.path.join(input_dir, "1"))
+            rows_per_worker = x_read_temp.shape[0]
+
+            #initialize the y vector for the current worker
             y_current=np.zeros((1+n_stragglers)*rows_per_worker)
-            y = load_data(input_dir+"label.dat")
+
             for i in range(1+n_stragglers):
                                 
                 if i==0:
@@ -87,7 +94,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     
     B = comm.bcast(B, root=0)
 
-    # Setting up y_current_mod on all workers
+    # Setting up y_current_mod on all workers,modifies y_current by multiplying different segments of it with corresponding elements from the matrix B
     if (rank):
         y_current_mod=np.zeros((1+n_stragglers)*rows_per_worker)
         for i in range(1+n_stragglers):
