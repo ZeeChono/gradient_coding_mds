@@ -60,23 +60,24 @@ def unique_rows(a):
     _, idx = np.unique(b, return_index=True)
     return a[idx]
 
+# for cyclic computation matrix H and B
 def getB(n_workers,n_stragglers):
-    Htemp=np.random.normal(0,1,[n_stragglers,n_workers-1])
-    H=np.vstack([Htemp.T,-np.sum(Htemp,axis=1)]).T
+    Htemp=np.random.normal(0,1,[n_stragglers,n_workers-1]) #generate a random matrix s*n
+    H=np.vstack([Htemp.T,-np.sum(Htemp,axis=1)]).T #add the last column to H to be the negative sum of the previous columns, because H*1=0
 
     Ssets=np.zeros([n_workers,n_stragglers+1])
 
     for i in range(n_workers):
-        Ssets[i,:]=np.arange(i,i+n_stragglers+1)
+        Ssets[i,:]=np.arange(i,i+n_stragglers+1) #generate the data partition index for each worker
     Ssets=Ssets.astype(int)
-    Ssets=Ssets%n_workers
-    B=np.zeros([n_workers,n_workers])
+    Ssets=Ssets%n_workers 
+    B=np.zeros([n_workers,n_workers]) #B is the weighted matrix of data partition for each worker, row is the worker index, column is the data partition index
     for i in range(n_workers):
-        B[i,Ssets[i,0]]=1
-        vtemp=-np.linalg.solve(H[:,np.array(Ssets[i,1:])],H[:,Ssets[i,0]])
+        B[i,Ssets[i,0]]=1   #set the first element of each row of B to be 1
+        vtemp=-np.linalg.solve(H[:,np.array(Ssets[i,1:])],H[:,Ssets[i,0]]) #find the solution to the linear equation H[other columns]*v=H[first existing column]
         ctr=0
         for j in Ssets[i,1:]:
-            B[i,j]=vtemp[ctr]
+            B[i,j]=vtemp[ctr]   #set the rest of the elements of each row of B to be the solution
             ctr+=1
 
     return B

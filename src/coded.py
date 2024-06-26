@@ -18,7 +18,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     rounds=params[0]
 
     n_workers=n_procs-1
-    rows_per_worker=n_samples/(n_procs-1)
+    rows_per_worker=n_samples//(n_procs-1)   # actually equals to the rows per partition
 
     # Loading the data
     if (rank):
@@ -32,17 +32,24 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 X_current[i*rows_per_worker:(i+1)*rows_per_worker,:] = load_data(input_dir+str((rank-1+i)%n_workers+1)+".dat")
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker] = y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
         else:
+            #the total number of rows of a worker is (1+n_stragglers)*(rows per partition)
+            y = load_data(os.path.join(input_dir, "label.dat"))
 
+            #get the size of a partition
+            x_read_temp = load_sparse_csr(os.path.join(input_dir, "1"))
+            rows_per_worker = x_read_temp.shape[0]
+
+            #initialize the y vector for the current worker
             y_current=np.zeros((1+n_stragglers)*rows_per_worker)
-            y = load_data(input_dir+"label.dat")
+
             for i in range(1+n_stragglers):
-                                
                 if i==0:
-                    X_current=load_sparse_csr(input_dir+str((rank-1+i)%n_workers+1))
+                    X_current=load_sparse_csr(os.path.join(input_dir, str((rank-1+i)%n_workers+1)))
                 else:
-                    X_temp = load_sparse_csr(input_dir+str((rank-1+i)%n_workers+1))
+                    X_temp = load_sparse_csr(os.path.join(input_dir, str((rank-1+i)%n_workers+1)))
                     X_current = sps.vstack((X_current,X_temp))
 
+                #put the (rank-1+i%workers)-th partition of y into the i-th partition of y_current
                 y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
 
     # Initializing relevant variables
@@ -86,7 +93,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     
     B = comm.bcast(B, root=0)
 
-    # Setting up y_current_mod on all workers
+    # Setting up y_current_mod on all workers,modifies y_current by multiplying different segments of it with corresponding elements from the matrix B
     if (rank):
         y_current_mod=np.zeros((1+n_stragglers)*rows_per_worker)
         for i in range(1+n_stragglers):
@@ -132,6 +139,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 sreq = comm.Isend([beta, MPI.DOUBLE], dest = l, tag = i)
                 send_set.append(sreq)            
             
+            #todo: make sure the judgement of the completion is not too strict
             while cnt_completed < n_procs-1-n_stragglers:
                 req_done = MPI.Request.Waitany(request_set[i], status)
                 src = status.Get_source()
@@ -141,10 +149,10 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 cnt_completed += 1
                 completed_workers[src-1] = True
 
-            
+            #completed_ind_set is the index that the workers have completed
             completed_ind_set = [l for l in range(n_procs-1) if completed_workers[l]]
-            A_row[0,completed_ind_set] = np.linalg.lstsq(B[completed_ind_set,:].T,np.ones(n_workers))[0]
-            g = np.squeeze(np.dot(A_row, msgBuffers))
+            A_row[0,completed_ind_set] = np.linalg.lstsq(B[completed_ind_set,:].T,np.ones(n_workers))[0]  # A_row is a two dimensional array, but only the first row is used for the weight of each worker
+            g = np.squeeze(np.dot(A_row, msgBuffers)) # get the weighted sum of the gradients from workers and sqeeze it to a one dimensional array
             
             # case_idx = calculate_indexA(completed_stragglers)
             # g = np.dot(A[case_idx,ind_set],tmpBuff)
@@ -194,20 +202,20 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 X_train = np.vstack((X_train, X_temp))
                 print(">> Loaded "+str(j))
         else:
-            X_train = load_sparse_csr(input_dir+"1")
+            X_train = load_sparse_csr(os.path.join(input_dir,"1"))
             for j in range(2,n_procs-1):
-                X_temp = load_sparse_csr(input_dir+str(j))
+                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))
                 X_train = sps.vstack((X_train, X_temp))
 
-        y_train = load_data(input_dir+"label.dat")
+        y_train = load_data(os.path.join(input_dir, "label.dat"))
         y_train = y_train[0:X_train.shape[0]]
 
         # Load all testing data
-        y_test = load_data(input_dir + "label_test.dat")
+        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
         if not is_real_data:
             X_test = load_data(input_dir+"test_data.dat")
         else:
-            X_test = load_sparse_csr(input_dir+"test_data")
+            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
 
         n_train = X_train.shape[0]
         n_test = X_test.shape[0]
@@ -228,15 +236,15 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
         
-        output_dir = input_dir + "results/"
+        output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, output_dir+"coded_acc_%d_training_loss.dat"%(n_stragglers))
-        save_vector(testing_loss, output_dir+"coded_acc_%d_testing_loss.dat"%(n_stragglers))
-        save_vector(auc_loss, output_dir+"coded_acc_%d_auc.dat"%(n_stragglers))
-        save_vector(timeset, output_dir+"coded_acc_%d_timeset.dat"%(n_stragglers))
-        save_matrix(worker_timeset, output_dir+"coded_acc_%d_worker_timeset.dat"%(n_stragglers))
+        save_vector(training_loss, os.path.join(output_dir, "coded_acc_%d_training_loss.dat"%(n_stragglers)))
+        save_vector(testing_loss, os.path.join(output_dir, "coded_acc_%d_testing_loss.dat"%(n_stragglers)))
+        save_vector(auc_loss, os.path.join(output_dir, "coded_acc_%d_auc.dat"%(n_stragglers)))
+        save_vector(timeset, os.path.join(output_dir, "coded_acc_%d_timeset.dat"%(n_stragglers)))
+        save_matrix(worker_timeset, os.path.join(output_dir, "coded_acc_%d_worker_timeset.dat"%(n_stragglers)))
         print(">>> Done")
 
     comm.Barrier()
