@@ -15,32 +15,36 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     rank = comm.Get_rank()
     size = comm.Get_size()
     
-    rounds=params[0]
 
+
+    ##########################################################################
+    ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
+    ##########################################################################
+    num_itrs=params[0]
     n_workers=n_procs-1
-    rows_per_worker=n_samples//(n_procs-1)   # actually equals to the rows per partition
-
+    rows_per_partition=n_samples//(n_procs-1)   # actually equals to the rows per partition
+    
     # Loading the data
     if (rank):
         
         if not is_real_data:
 
             y=load_data(input_dir+"label.dat")
-            X_current=np.zeros([(1+n_stragglers)*rows_per_worker,n_features])
-            y_current=np.zeros((1+n_stragglers)*rows_per_worker)
+            X_current=np.zeros([(1+n_stragglers)*rows_per_partition,n_features])
+            y_current=np.zeros((1+n_stragglers)*rows_per_partition)
             for i in range(1+n_stragglers):
-                X_current[i*rows_per_worker:(i+1)*rows_per_worker,:] = load_data(input_dir+str((rank-1+i)%n_workers+1)+".dat")
-                y_current[i*rows_per_worker:(i+1)*rows_per_worker] = y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
+                X_current[i*rows_per_partition:(i+1)*rows_per_partition,:] = load_data(input_dir+str((rank-1+i)%n_workers+1)+".dat")
+                y_current[i*rows_per_partition:(i+1)*rows_per_partition] = y[((rank-1+i)%n_workers)*rows_per_partition:((rank-1+i)%n_workers+1)*rows_per_partition]
         else:
             #the total number of rows of a worker is (1+n_stragglers)*(rows per partition)
             y = load_data(os.path.join(input_dir, "label.dat"))
 
             #get the size of a partition
             x_read_temp = load_sparse_csr(os.path.join(input_dir, "1"))
-            rows_per_worker = x_read_temp.shape[0]
+            rows_per_partition = x_read_temp.shape[0]
 
             #initialize the y vector for the current worker
-            y_current=np.zeros((1+n_stragglers)*rows_per_worker)
+            y_current=np.zeros((1+n_stragglers)*rows_per_partition)
 
             for i in range(1+n_stragglers):
                 if i==0:
@@ -50,7 +54,7 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                     X_current = sps.vstack((X_current,X_temp))
 
                 #put the (rank-1+i%workers)-th partition of y into the i-th partition of y_current
-                y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[((rank-1+i)%n_workers)*rows_per_worker:((rank-1+i)%n_workers+1)*rows_per_worker]
+                y_current[i*rows_per_partition:(i+1)*rows_per_partition]=y[((rank-1+i)%n_workers)*rows_per_partition:((rank-1+i)%n_workers+1)*rows_per_partition]
 
     # Initializing relevant variables
     B = np.zeros((n_workers,n_workers))
@@ -75,9 +79,9 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
         A_row = np.zeros((1,n_procs-1))
 
-        betaset = np.zeros((rounds, n_features))
-        timeset = np.zeros(rounds)
-        worker_timeset=np.zeros((rounds, n_procs-1))
+        betaset = np.zeros((num_itrs, n_features))
+        timeset = np.zeros(num_itrs)
+        worker_timeset=np.zeros((num_itrs, n_procs-1))
         
         request_set = []
         recv_reqs = []
@@ -95,20 +99,20 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
     # Setting up y_current_mod on all workers,modifies y_current by multiplying different segments of it with corresponding elements from the matrix B
     if (rank):
-        y_current_mod=np.zeros((1+n_stragglers)*rows_per_worker)
+        y_current_mod=np.zeros((1+n_stragglers)*rows_per_partition)
         for i in range(1+n_stragglers):
-            y_current_mod[i*rows_per_worker:(i+1)*rows_per_worker] = B[rank-1, ((rank-1+i)%n_workers)] * y_current[i*rows_per_worker:(i+1)*rows_per_worker]
+            y_current_mod[i*rows_per_partition:(i+1)*rows_per_partition] = B[rank-1, ((rank-1+i)%n_workers)] * y_current[i*rows_per_partition:(i+1)*rows_per_partition]
 
 
     # Posting all Irecv requests for master and workers
     if (rank):
 
-        for i in range(rounds):
+        for i in range(num_itrs):
             req = comm.Irecv([beta, MPI.DOUBLE], source=0, tag=i)
             recv_reqs.append(req)
     else:
 
-        for i in range(rounds):
+        for i in range(num_itrs):
             recv_reqs = []
             for j in range(1,n_procs):
                 req = comm.Irecv([msgBuffers[j-1], MPI.DOUBLE], source=j, tag=i)
@@ -117,11 +121,17 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
     #######################################################################################################
     comm.Barrier()
+
+
+
+    ##########################################################################
+    ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
+    ##########################################################################
     if rank==0:
         print("---- Starting Coded Iterations for " +str(n_stragglers) + " stragglers ----")
         orig_start_time= time.time()
 
-    for i in range(rounds):
+    for i in range(num_itrs):
     
         if rank == 0:
 
@@ -190,6 +200,11 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
     #####################################################################################################
     comm.Barrier()
+
+
+    ##########################################################################
+    ## FINAL STEP: TRAINING/TEST LOSS COMPUTATION AND SAVE WORK
+    ##########################################################################
     if rank==0:
         elapsed_time= time.time() - orig_start_time
         print ("Total Time Elapsed: %.3f" %(elapsed_time))
@@ -220,13 +235,13 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         n_train = X_train.shape[0]
         n_test = X_test.shape[0]
 
-        training_loss = np.zeros(rounds)
-        testing_loss = np.zeros(rounds)
-        auc_loss = np.zeros(rounds)
+        training_loss = np.zeros(num_itrs)
+        testing_loss = np.zeros(num_itrs)
+        auc_loss = np.zeros(num_itrs)
 
         from sklearn.metrics import roc_curve, auc
 
-        for i in range(rounds):
+        for i in range(num_itrs):
             beta = np.squeeze(betaset[i,:])
             predy_train = X_train.dot(beta)
             predy_test = X_test.dot(beta)

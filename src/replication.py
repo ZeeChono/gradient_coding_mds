@@ -26,7 +26,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     num_itrs = params[0]            # num of iters
     beta = np.zeros(n_features)     # initialize the model (start from 0)
 
-    rows_per_worker = n_samples//(n_procs-1)
+    rows_per_partition = n_samples//(n_procs-1)
 
     # Assume n_workers is a multiple of s+1
     workers_per_group = n_workers // (n_stragglers+1)     # group size: #workers
@@ -36,8 +36,8 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     # Loading the data on workers
     if (rank):
         if not is_real_data:
-            X_current = np.zeros(((1+n_stragglers)*rows_per_worker, n_features))
-            y_current = np.zeros((1+n_stragglers)*rows_per_worker)
+            X_current = np.zeros(((1+n_stragglers)*rows_per_partition, n_features))
+            y_current = np.zeros((1+n_stragglers)*rows_per_partition)
             y = load_data(input_dir+"label.dat")
 
             for i in range(1+n_stragglers):
@@ -45,15 +45,15 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 b=(rank-1)%(n_stragglers+1) # position inside the group
                 idx=(n_stragglers+1)*a+(b+i)%(n_stragglers+1)
                 
-                X_current[i*rows_per_worker:(i+1)*rows_per_worker,:]=load_data(input_dir+str(idx+1)+".dat")
-                y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[idx*rows_per_worker:(idx+1)*rows_per_worker]
+                X_current[i*rows_per_partition:(i+1)*rows_per_partition,:]=load_data(input_dir+str(idx+1)+".dat")
+                y_current[i*rows_per_partition:(i+1)*rows_per_partition]=y[idx*rows_per_partition:(idx+1)*rows_per_partition]
 
         else:   # real data
             y = load_data(os.path.join(input_dir, "label.dat"))
             # For real dataset, read in one example file and determine how many samples we have
             x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
-            rows_per_worker = x_read_temp.shape[0]
-            y_current = np.zeros((1+n_stragglers)*rows_per_worker)
+            rows_per_partition = x_read_temp.shape[0]
+            y_current = np.zeros((1+n_stragglers)*rows_per_partition)
 
             for i in range(1+n_stragglers):     # each worker needs to load s+1 data partitions
                 group_id = (rank-1) // (workers_per_group)
@@ -65,7 +65,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 else:
                     X_temp = load_sparse_csr(os.path.join(input_dir, str(data_id+1)))
                     X_current = sps.vstack((X_current,X_temp))
-                y_current[i*rows_per_worker:(i+1)*rows_per_worker]=y[data_id*rows_per_worker:(data_id+1)*rows_per_worker]
+                y_current[i*rows_per_partition:(i+1)*rows_per_partition]=y[data_id*rows_per_partition:(data_id+1)*rows_per_partition]
                 print(f"Rank {rank}: loop {i} with group_id={group_id}, group_index={group_index}, data_id={data_id} and X_cur has shape: {X_current.shape}")
 
     # Initializing relevant variables            
