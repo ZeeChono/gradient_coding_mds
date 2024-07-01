@@ -17,7 +17,7 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     ##########################################################################
     ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
     ##########################################################################    
-    rounds = params[0]
+    rounds = params[0]  # num of iters
 
     beta=np.zeros(n_features)
 
