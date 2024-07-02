@@ -13,8 +13,11 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    
-    rounds = params[0]
+
+    ##########################################################################
+    ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
+    ##########################################################################    
+    rounds = params[0]  # num of iters
 
     beta=np.zeros(n_features)
 
@@ -25,8 +28,8 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             X_current = load_data(input_dir+str(rank)+".dat")
             y = load_data(input_dir+"label.dat")
         else:
-            X_current = load_sparse_csr(input_dir+str(rank))
-            y = load_data(input_dir+"label.dat")
+            X_current = load_sparse_csr(os.path.join(input_dir, str(rank)))
+            y = load_data(os.path.join(input_dir, "label.dat"))
 
         rows_per_worker = X_current.shape[0]
         y_current=y[(rank-1)*rows_per_worker:rank*rows_per_worker]
@@ -80,6 +83,9 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     ##########################################################################################
     comm.Barrier()
 
+    ##########################################################################
+    ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
+    ##########################################################################
     if rank==0:
         orig_start_time = time.time()
         print("---- Starting AvoidStragg Iterations with " +str(n_stragglers) + " stragglers ----")
@@ -102,7 +108,7 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 sreq = comm.Isend([beta, MPI.DOUBLE], dest = l, tag = i)
                 send_set.append(sreq)
             
-            
+            # allows for n_stragglers to be straggling
             while cnt_completed < n_procs-1-n_stragglers:
                 req_done = MPI.Request.Waitany(request_set[i], status)
                 src = status.Get_source()
@@ -113,7 +119,7 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 cnt_completed += 1
                 completed_workers[src-1] = True
 
-            grad_multiplier = eta_sequence[i]/(n_samples*(n_procs-1-n_stragglers)/(n_procs-1))
+            grad_multiplier = eta_sequence[i]/(n_samples*(n_procs-1-n_stragglers)/(n_procs-1)) # it uses n_samples * (effective_workers / total_workers) as the scaling factor
             # ---- update step for gradient descent
             # np.subtract((1-2*alpha*eta_sequence[i])*beta , grad_multiplier*g, out=beta)
 
@@ -127,6 +133,8 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             timeset[i] = time.time() - start_time
 
             betaset[i,:] = beta
+
+            #setting the time for straggling workers to -1
             ind_set = [l for l in range(1,n_procs) if not completed_workers[l-1]]
             for l in ind_set:
                 worker_timeset[i,l-1]=-1
@@ -151,6 +159,9 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
     #########################################################################################
     comm.Barrier()
 
+    ##########################################################################
+    ## FINAL STEP: TRAINING/TEST LOSS COMPUTATION AND SAVE WORK
+    ##########################################################################
     if rank==0:
         elapsed_time= time.time() - orig_start_time
         print ("Total Time Elapsed: %.3f" %(elapsed_time))
@@ -161,20 +172,20 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
                 X_temp = load_data(input_dir+str(j)+".dat")
                 X_train = np.vstack((X_train, X_temp))
         else:
-            X_train = load_sparse_csr(input_dir+"1")
+            X_train = load_sparse_csr(os.path.join(input_dir, "1"))
             for j in range(2,n_procs-1):
-                X_temp = load_sparse_csr(input_dir+str(j))
+                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))
                 X_train = sps.vstack((X_train, X_temp))
 
-        y_train = load_data(input_dir+"label.dat")
+        y_train = load_data(os.path.join(input_dir, "label.dat"))
         y_train = y_train[0:X_train.shape[0]]
 
         # Load all testing data
-        y_test = load_data(input_dir + "label_test.dat")
+        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
         if not is_real_data:
             X_test = load_data(input_dir+"test_data.dat")
         else:
-            X_test = load_sparse_csr(input_dir+"test_data")
+            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
 
         n_train = X_train.shape[0]
         n_test = X_test.shape[0]
@@ -195,15 +206,15 @@ def avoidstragg_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
         
-        output_dir = input_dir + "results/"
+        output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, output_dir+"avoidstragg_acc_%d_training_loss.dat"%(n_stragglers))
-        save_vector(testing_loss, output_dir+"avoidstragg_acc_%d_testing_loss.dat"%(n_stragglers))
-        save_vector(auc_loss, output_dir+"avoidstragg_acc_%d_auc.dat"%(n_stragglers))
-        save_vector(timeset, output_dir+"avoidstragg_acc_%d_timeset.dat"%(n_stragglers))
-        save_matrix(worker_timeset, output_dir+"avoidstragg_acc_%d_worker_timeset.dat"%(n_stragglers))
+        save_vector(training_loss, os.path.join(output_dir, "avoidstragg_acc_%d_training_loss.dat"%(n_stragglers)))
+        save_vector(testing_loss, os.path.join(output_dir, "avoidstragg_acc_%d_testing_loss.dat"%(n_stragglers)))
+        save_vector(auc_loss, os.path.join(output_dir, "avoidstragg_acc_%d_auc.dat"%(n_stragglers)))
+        save_vector(timeset, os.path.join(output_dir, "avoidstragg_acc_%d_timeset.dat"%(n_stragglers)))
+        save_matrix(worker_timeset, os.path.join(output_dir, "avoidstragg_acc_%d_worker_timeset.dat"%(n_stragglers)))
         print(">>> Done")
 
     comm.Barrier()
