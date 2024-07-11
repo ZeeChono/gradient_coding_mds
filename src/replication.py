@@ -75,7 +75,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
         # message buffers
         send_req = MPI.Request()
         recv_reqs = []
-        compute_times = np.zeros(num_itrs) # time taken to compute g in each iteration
+        worker_compute_times = np.zeros(num_itrs) # time taken to compute g in each iteration
 
     else:   # master
         msgBuffers = [np.zeros(n_features) for i in range(n_procs-1)]
