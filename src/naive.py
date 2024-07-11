@@ -42,6 +42,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         # message buffers
         send_req = MPI.Request()
         recv_reqs = []
+        worker_compute_times = np.zeros(num_itrs) # time taken to compute g in each iteration
 
     else:       # master
 
@@ -61,7 +62,9 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         eta0=params[2] # ----- learning rate schedule
         alpha = params[1] # --- coefficient of l2 regularization
         utemp = np.zeros(n_features) # for accelerated gradient descent
-   
+
+        all_worker_compute_times = np.zeros((num_itrs, n_procs-1)) # to collect each worker's compute time for each iteration
+
     # Posting all Irecv requests for master and workers
     # setup listeners for receiving information before we proceed
     if (rank):
@@ -137,6 +140,8 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             # workers calculate the partial gradients and send it back
             recv_reqs[i].Wait()
             
+            compute_start_time = time.time()
+
             # sendTestBuf = send_req.test()
             # if not sendTestBuf[0]:
             #     send_req.Cancel()
@@ -147,6 +152,8 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             g *= -1
             send_req = comm.Isend([g, MPI.DOUBLE], dest=0, tag=i)
 
+            compute_end_time = time.time()  # end time for g computation
+            worker_compute_times[i] = compute_end_time - compute_start_time
     #####################################################################################################
     comm.Barrier()
 
@@ -157,6 +164,12 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
     if rank==0:
         elapsed_time = time.time() - orig_start_time
         print ("Total Time Elapsed: %.3f" %(elapsed_time))
+
+        # receive the compute times from workers
+        for j in range(1,n_procs):
+            worker_compute_times = np.zeros(num_itrs)
+            comm.Recv([worker_compute_times, MPI.DOUBLE], source=j, tag=j)
+            all_worker_compute_times[:,j-1] = worker_compute_times
 
         # Load all training data
         if not is_real_data:
@@ -205,6 +218,8 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             fpr, tpr, thresholds = roc_curve(y_test,predy_test, pos_label=1)
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
+            print(f"time before receiving each worker's g for iteration {i}: {worker_timeset[i]}") # each iter, how long does the master take to receive g from each worker
+            print(f"time taken on worker side for iteration {i}: {all_worker_compute_times[i]}") # each iter, how long does it take each worker to compute g
             avg_time += timeset[i]
 
         output_dir = os.path.join(input_dir, "results")
@@ -218,4 +233,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         save_matrix(worker_timeset, os.path.join(output_dir, "naive_acc_worker_timeset.dat"))
         print(f">>> Done with avg iter_time: {avg_time / num_itrs}")
 
+    else:
+        comm.Send([worker_compute_times, MPI.DOUBLE], dest=0, tag=rank)
+        
     comm.Barrier()
