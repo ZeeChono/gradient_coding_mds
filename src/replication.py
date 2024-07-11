@@ -203,7 +203,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             send_req = comm.Isend([g, MPI.DOUBLE], dest=0, tag=i)
             
             compute_end_time = time.time()  # end time for g computation
-            compute_times[i] = compute_end_time - compute_start_time
+            worker_compute_times[i] = compute_end_time - compute_start_time
     #############################################################################################
     comm.Barrier()
 
