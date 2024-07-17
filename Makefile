@@ -1,5 +1,8 @@
 # No. of workers
-N_PROCS=3
+N_PROCS=11
+
+# Define number of workers
+WORKERS := $(shell seq -s, 1 $$(($(N_PROCS) - 1)) | sed 's/[0-9]\+/w&/g')
 
 # No. of stragglers in our coding schemes
 N_STRAGGLERS=1
@@ -32,16 +35,16 @@ arrange_real_data:
 	python3 ./src/arrange_real_data.py $(N_PROCS) $(DATA_FOLDER) $(DATASET) $(N_STRAGGLERS) $(N_PARTITIONS) $(PARTIAL_CODED)
 
 naive:   
-	mpirun -np $(N_PROCS) -H localhost,w1,w2 python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0
 
 cyccoded:
-	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 0
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 0
 
 repcoded:
-	mpirun -np $(N_PROCS) -H localhost,w1,w2 python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 1
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 1
 
 avoidstragg:
-	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 2
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 2
 
 partialrepcoded:
 	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) $(N_PARTITIONS) 1

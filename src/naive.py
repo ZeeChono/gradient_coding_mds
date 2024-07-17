@@ -9,7 +9,7 @@ import time
 from mpi4py import MPI
 import pdb
 
-def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real_data, params):
+def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -190,7 +190,6 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
 
         from sklearn.metrics import roc_curve, auc
 
-        avg_time=0.0
         for i in range(num_itrs):
             # iterating over model param--beta at each iteration
             beta = np.squeeze(betaset[i,:])
@@ -205,7 +204,12 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
             fpr, tpr, thresholds = roc_curve(y_test,predy_test, pos_label=1)
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
-            avg_time += timeset[i]
+
+        # plot the image
+        cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
+        sim_type = "naive"
+        n_workers = n_procs-1
+        plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers)
 
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
@@ -216,6 +220,6 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, is_real
         save_vector(auc_loss, os.path.join(output_dir, "naive_acc_auc.dat"))
         save_vector(timeset, os.path.join(output_dir, "naive_acc_timeset.dat"))
         save_matrix(worker_timeset, os.path.join(output_dir, "naive_acc_worker_timeset.dat"))
-        print(f">>> Done with avg iter_time: {avg_time / num_itrs}")
+        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()

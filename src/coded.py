@@ -251,6 +251,11 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
         
+        # plot the image
+        cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
+        sim_type = "cyc"
+        plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers)
+
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -260,6 +265,6 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         save_vector(auc_loss, os.path.join(output_dir, "coded_acc_%d_auc.dat"%(n_stragglers)))
         save_vector(timeset, os.path.join(output_dir, "coded_acc_%d_timeset.dat"%(n_stragglers)))
         save_matrix(worker_timeset, os.path.join(output_dir, "coded_acc_%d_worker_timeset.dat"%(n_stragglers)))
-        print(">>> Done")
+        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()

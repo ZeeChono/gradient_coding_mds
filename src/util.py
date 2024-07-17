@@ -6,6 +6,7 @@ import numpy as np
 import itertools
 import scipy.special as sp
 from scipy.sparse import csr_matrix
+import matplotlib.pyplot as plt
 
 # ---- Data generation, saving, loading and modification routines
 
@@ -135,3 +136,21 @@ def calculate_indexA(boolvec):
 
 def calculate_loss(y,predy,n_samples):  # log loss
     return np.sum( np.log(1 + np.exp(-np.multiply(y,predy))) ) / n_samples
+
+
+## Plot the auc versus timestamp and save as image
+def plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers):
+    output_images_dir = os.path.join(input_dir, "images")
+    if not os.path.exists(output_images_dir):
+        os.makedirs(output_images_dir)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(cumulative_time, auc_loss, marker='o', linestyle='-', color='b')
+    plt.xlabel('Cumulative Time (seconds)')
+    plt.ylabel('AUC')
+    plt.title('AUC vs Cumulative Time')
+    plt.grid(True)
+
+    output_file = sim_type+"_"+str(n_workers)+"_"+str(n_stragglers)
+    # Save the plot as a PNG file
+    plt.savefig(os.path.join(output_images_dir, output_file+".png"))
