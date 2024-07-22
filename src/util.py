@@ -154,3 +154,7 @@ def plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, 
     output_file = sim_type+"_"+str(n_workers)+"_"+str(n_stragglers)
     # Save the plot as a PNG file
     plt.savefig(os.path.join(output_images_dir, output_file+".png"))
+
+## Compute the accuracy of given result
+def compute_acc(label_y, pred_y):
+    return np.mean(label_y==pred_y)
