@@ -150,7 +150,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             while cnt_groups < workers_per_group:
                 req_done = MPI.Request.Waitany(request_set[i], status)
                 src = status.Get_source()
-                print(f"Received src: {src}")
+                # print(f"Received src: {src}")
                 worker_timeset[i,src-1]=time.time()-start_time
                 request_set[i].pop(req_done)
 
@@ -251,8 +251,8 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
         auc_loss = np.zeros(num_itrs)
 
         from sklearn.metrics import roc_curve, auc
+        
 
-        avg_time=0.0
         for i in range(num_itrs):
             beta = np.squeeze(betaset[i,:])
             predy_train = X_train.dot(beta)
@@ -262,9 +262,14 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
             fpr, tpr, thresholds = roc_curve(y_test,predy_test, pos_label=1)
             auc_loss[i] = auc(fpr,tpr)
             print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
-            print(f"time before receiving each worker's g for iteration {i}: {worker_timeset[i]}") # each iter, how long does the master take to receive g from each worker
-            print(f"time taken on worker side for iteration {i}: {all_worker_compute_times[i]}") # each iter, how long does it take each worker to compute g
-            avg_time += timeset[i]
+            # print(f"time before receiving each worker's g for iteration {i}: {worker_timeset[i]}") # each iter, how long does the master take to receive g from each worker
+            # print(f"time taken on worker side for iteration {i}: {all_worker_compute_times[i]}") # each iter, how long does it take each worker to compute g
+
+        # plot the image
+        cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
+        sim_type = "rep"
+        plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers)
+
 
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
@@ -275,7 +280,7 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
         save_vector(auc_loss, os.path.join(output_dir, "replication_acc_%d_auc.dat"%(n_stragglers)))
         save_vector(timeset, os.path.join(output_dir, "replication_acc_%d_timeset.dat"%(n_stragglers)))
         save_matrix(worker_timeset, os.path.join(output_dir, "replication_acc_%d_worker_timeset.dat"%(n_stragglers)))
-        print(f">>> Done with avg iter_time: {avg_time / num_itrs}")
+        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     else:
         comm.Send([worker_compute_times, MPI.DOUBLE], dest=0, tag=rank)
