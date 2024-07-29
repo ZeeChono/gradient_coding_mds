@@ -82,8 +82,6 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         betaset = np.zeros((num_itrs, n_features))
         timeset = np.zeros(num_itrs)
         worker_timeset=np.zeros((num_itrs, n_procs-1))
-
-        extra_timeset = np.zeros(num_itrs) # for calculating the time taken for extra computations in cyclic method
         
         request_set = []
         recv_reqs = []
@@ -163,10 +161,9 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
             #completed_ind_set is the index that the workers have completed
             completed_ind_set = [l for l in range(n_procs-1) if completed_workers[l]]
-            extra_time_start = time.time()
             A_row[0,completed_ind_set] = np.linalg.lstsq(B[completed_ind_set,:].T,np.ones(n_workers))[0]  # A_row is a two dimensional array, but only the first row is used for the weight of each worker
             g = np.squeeze(np.dot(A_row, msgBuffers)) # get the weighted sum of the gradients from workers and sqeeze it to a one dimensional array
-            extra_timeset[i] = time.time()-extra_time_start
+            
             # case_idx = calculate_indexA(completed_stragglers)
             # g = np.dot(A[case_idx,ind_set],tmpBuff)
             
@@ -267,7 +264,6 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         save_vector(testing_loss, os.path.join(output_dir, "coded_acc_%d_testing_loss.dat"%(n_stragglers)))
         save_vector(auc_loss, os.path.join(output_dir, "coded_acc_%d_auc.dat"%(n_stragglers)))
         save_vector(timeset, os.path.join(output_dir, "coded_acc_%d_timeset.dat"%(n_stragglers)))
-        save_vector(extra_timeset, os.path.join(output_dir, "coded_acc_%d_extra_timeset.dat"%(n_stragglers)))
         save_matrix(worker_timeset, os.path.join(output_dir, "coded_acc_%d_worker_timeset.dat"%(n_stragglers)))
         print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
