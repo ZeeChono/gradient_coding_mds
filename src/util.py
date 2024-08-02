@@ -158,3 +158,7 @@ def plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, 
 ## Compute the accuracy of given result
 def compute_acc(label_y, pred_y):
     return np.mean(label_y==pred_y)
+
+## Compute normal gradient decent
+def comput_gd(beta, g, alpha):
+    return (beta - alpha*g)

@@ -6,6 +6,7 @@ import random
 import pandas as pd
 from sklearn import  preprocessing
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit
 import sklearn.datasets as datasets
 from util import *
 import itertools
@@ -153,9 +154,10 @@ elif real_dataset=="covtype":
     trainX_tmp = trainData.data
     trainY_tmp = trainData.target
 
-    desired_label_ind = np.where(trainY_tmp <= 2)[0]
+    desired_label_ind = np.where(trainY_tmp <= 2)[0]    # only keep label 0 and 1; two types
     trainX, dataset_bin_Y = np.take(trainX_tmp, desired_label_ind, axis=0), np.take(trainY_tmp, desired_label_ind)
     trainY = np.array([-1 if y == 1 else 1 for y in dataset_bin_Y])
+    
     relabeler = preprocessing.LabelEncoder()
     for col in range(len(trainX[0, :])):
         relabeler.fit(trainX[:, col])
@@ -163,6 +165,11 @@ elif real_dataset=="covtype":
 
     trainX=np.vstack([trainX.T,np.ones(trainX.shape[0])]).T     ## Adding intercept bias to linear model
 
+    ## Stratified sampling to 50%, to avoid out of memory
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=42)        
+    for train_index, test_index in sss.split(trainX, trainY):
+        trainX, trainY = trainX[test_index], trainY[test_index]
+    
     X_train, X_valid, y_train, y_valid = train_test_split(trainX, trainY, test_size=0.2, random_state=0)
 
     encoder = preprocessing.OneHotEncoder(sparse=True)

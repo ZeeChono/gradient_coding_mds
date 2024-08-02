@@ -7,6 +7,7 @@ import numpy as np
 import scipy.sparse as sps
 import time
 from mpi4py import MPI
+from sklearn.metrics import roc_curve, auc
 import pdb
 
 def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
@@ -14,11 +15,47 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
     rank = comm.Get_rank()
     size = comm.Get_size()
 
+
+    num_itrs = params[0]            # num of iters
+    beta=np.zeros(n_features)       # initialize the model (start from 0)
+    
+    # Load necessary data on master, and reserve space for metrics
+    if rank == 0:
+        # Load all training data
+        if not is_real_data:
+            X_train = load_data(input_dir+"1.dat")
+            print(">> Loaded 1")
+            for j in range(2,n_procs-1):
+                X_temp = load_data(input_dir+str(j)+".dat")
+                X_train = np.vstack((X_train, X_temp))
+                print(">> Loaded "+str(j))
+        else:
+            X_train = load_sparse_csr(os.path.join(input_dir, "1"))     # load ~/dataset/amazon-dataset/2/1.npz
+            for j in range(2,n_procs-1):
+                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))   # load other npz
+                X_train = sps.vstack((X_train, X_temp))                     # then stack them vertically
+        y_train = load_data(os.path.join(input_dir, "label.dat"))
+        y_train = y_train[0:X_train.shape[0]]
+
+        # Load all testing data
+        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
+        if not is_real_data:
+            X_test = load_data(input_dir+"test_data.dat")
+        else:
+            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
+        # number of samples
+        n_train = X_train.shape[0] 
+        n_test = X_test.shape[0]
+
+        training_loss = np.zeros(num_itrs)
+        testing_loss = np.zeros(num_itrs)
+        auc_loss = np.zeros(num_itrs)
+        acc = np.zeros(num_itrs)
+
+
     ##########################################################################
     ## FIRST STEP: SETUP ALL REQUIRED PARAMS AND REQ_LIST(LISTENER) OF MPI COMMUNICATION
     ##########################################################################
-    num_itrs = params[0]            # num of iters
-    beta=np.zeros(n_features)       # initialize the model (start from 0)
 
     # Loading data on workers
     if (rank):  # if rank != 0
@@ -47,7 +84,7 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
         msgBuffers = [np.zeros(n_features) for i in range(n_procs-1)]
         g = np.zeros(n_features)
-        betaset = np.zeros((num_itrs, n_features))
+        # betaset = np.zeros((num_itrs, n_features))
         timeset = np.zeros(num_itrs)
         worker_timeset=np.zeros((num_itrs, n_procs-1))    # each iter, how long does it take each worker to compute g
         # requests list
@@ -130,8 +167,30 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             utemp = beta + (betatemp-beta)*(1/theta)
             beta[:] = betatemp      # the same model to broadcast for the next iteration
             
+            ################
+            ### EASY gd ####
+            # print(f"LR = {grad_multiplier}")
+            # beta = comput_gd(beta, g, 5e-7)
+            ################
+
             timeset[i] = time.time() - start_time
-            betaset[i,:] = beta     # model at the i-th iteration
+            # betaset[i,:] = beta     # model at the i-th iteration
+
+            ## NEW: calculate the train_loss and test loss
+            Xtrain_beta = X_train.dot(beta)
+            Xtest_beta = X_test.dot(beta)
+            
+            training_loss[i] = calculate_loss(y_train, Xtrain_beta, n_train)
+            testing_loss[i] = calculate_loss(y_test, Xtest_beta, n_test)
+
+            sigmoid_test = 2/(1+np.exp(-Xtest_beta)) - 1
+            predy_test = np.where(sigmoid_test >= 0.0, 1, -1)
+
+            acc[i] = compute_acc(y_test, predy_test)
+            # area under ROC curve
+            fpr, tpr, thresholds = roc_curve(y_test, sigmoid_test, pos_label=1)
+            auc_loss[i] = auc(fpr,tpr)
+            
 
         else:
             # workers calculate the partial gradients and send it back
@@ -141,8 +200,8 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             # if not sendTestBuf[0]:
             #     send_req.Cancel()
 
-            predy = X_current.dot(beta) # new prediction
-            # calculate new partial gradients
+            predy = X_current.dot(beta)
+
             g = X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))
             g *= -1
             send_req = comm.Isend([g, MPI.DOUBLE], dest=0, tag=i)
@@ -158,58 +217,16 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         elapsed_time = time.time() - orig_start_time
         print ("Total Time Elapsed: %.3f" %(elapsed_time))
 
-        # Load all training data
-        if not is_real_data:
-            X_train = load_data(input_dir+"1.dat")
-            print(">> Loaded 1")
-            for j in range(2,n_procs-1):
-                X_temp = load_data(input_dir+str(j)+".dat")
-                X_train = np.vstack((X_train, X_temp))
-                print(">> Loaded "+str(j))
-        else:
-            X_train = load_sparse_csr(os.path.join(input_dir, "1"))     # load ~/dataset/amazon-dataset/2/1.npz
-            for j in range(2,n_procs-1):
-                X_temp = load_sparse_csr(os.path.join(input_dir, str(j)))   # load other npz
-                X_train = sps.vstack((X_train, X_temp))                     # then stack them vertically
-        y_train = load_data(os.path.join(input_dir, "label.dat"))
-        y_train = y_train[0:X_train.shape[0]]
-
-        # Load all testing data
-        y_test = load_data(os.path.join(input_dir, "label_test.dat"))
-        if not is_real_data:
-            X_test = load_data(input_dir+"test_data.dat")
-        else:
-            X_test = load_sparse_csr(os.path.join(input_dir, "test_data"))
-        # number of samples
-        n_train = X_train.shape[0] 
-        n_test = X_test.shape[0]
-
-        training_loss = np.zeros(num_itrs)
-        testing_loss = np.zeros(num_itrs)
-        auc_loss = np.zeros(num_itrs)
-
-        from sklearn.metrics import roc_curve, auc
 
         for i in range(num_itrs):
-            # iterating over model param--beta at each iteration
-            beta = np.squeeze(betaset[i,:])
-            predy_train = X_train.dot(beta)
-            predy_test = X_test.dot(beta)
-            # predy_test = 1 / (1 + np.exp(-predy_test))
-            # if i == num_itrs-1:
-            #     pdb.set_trace()
-            training_loss[i] = calculate_loss(y_train, predy_train, n_train)        # TODO: this doesn't make sense, the prediction is only the linear part and hasn't been sigmoid yet
-            testing_loss[i] = calculate_loss(y_test, predy_test, n_test)
-            # area under ROC curve
-            fpr, tpr, thresholds = roc_curve(y_test,predy_test, pos_label=1)
-            auc_loss[i] = auc(fpr,tpr)
-            print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], timeset[i]))
+            print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, acc = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], acc[i], timeset[i]))
 
         # plot the image
+        output_dir = "./out/"
         cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
         sim_type = "naive"
         n_workers = n_procs-1
-        plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers)
+        plot_auc_vs_time(auc_loss, cumulative_time, sim_type, output_dir, n_workers, n_stragglers)
 
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
