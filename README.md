@@ -1,4 +1,10 @@
 # gradient_coding
-This is an implementation of https://arxiv.org/abs/1612.03301 for logistic regression.
+This is an implementation based on https://arxiv.org/abs/1612.03301 for a simple ML task: logistic regression.
 
-For usage instructions, please see the associated wiki (https://github.com/rashisht1/gradient_coding/wiki).
+## File to coding scheme mapping table
+| File     | Gradient Coding Scheme  |
+|----------|-----|
+| naive.py | Uncoded  | 
+| replication.py | FRC  | 
+| coded.py| CRC  |
+|bibd.py| BIBD|
