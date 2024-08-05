@@ -10,7 +10,7 @@ from replication import *
 from avoidstragg import *
 from partial_replication import *
 from partial_coded import *
-from general import *
+from bibd import *
 import numpy as np
 from mpi4py import MPI
 import os
@@ -39,16 +39,6 @@ learning_rate_schedule = 10.0 * np.ones(num_itrs)   # learning rate is 10.0 for 
 # t0 = 90.0
 # learning_rate_schedule = [eta0*t0/(i + t0) for i in range(1,num_itrs+1)]
 
-B = np.array([[1,1,0,0,0,0,0,0,0,0], 
-               [0,0,1,1,0,0,0,0,0,0],
-               [0,0,0,0,1,1,0,0,0,0],
-               [0,0,0,0,0,0,1,1,0,0],
-               [0,0,0,0,0,0,0,0,1,1],
-               [1,1,0,0,0,0,0,0,0,0], 
-               [0,0,1,1,0,0,0,0,0,0],
-               [0,0,0,0,1,1,0,0,0,0],
-               [0,0,0,0,0,0,1,1,0,0],
-               [0,0,0,0,0,0,0,0,1,1]])
 
 # -------------------------------------------------------------------------------------------------------------------------------
 
@@ -56,7 +46,7 @@ params = []
 params.append(num_itrs)                 # params[0] = num of iters
 params.append(alpha)                    # params[1] = alpha (l2 regularization)
 params.append(learning_rate_schedule)   # params[2] = learning rate per iter
-params.append(B)
+
 
 home = os.path.expanduser("~")  # home path
 
@@ -87,6 +77,22 @@ if is_coded:
 
         elif(coded_ver ==2):    # Ignore
             avoidstragg_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
+        
+        elif(coded_ver ==3):    # bibd
+            B = np.array([
+                [1, 1, 1, 0, 0, 0, 0],
+                [1, 0, 0, 1, 1, 0, 0],
+                [1, 0, 0, 0, 0, 1, 1],
+                [0, 1, 0, 1, 0, 1, 0],
+                [0, 1, 0, 0, 1, 0, 1],
+                [0, 0, 1, 1, 0, 0, 1],
+                [0, 0, 1, 0, 1, 1, 0]
+            ])          #v=b=7, k=3, r=3
+            params.append(B)
+            params.append(3)    # L
+            params.append(1)    # lamda
+            bibd_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
+
 else:   # not coded implementation == Naive
     # general_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
     naive_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)

@@ -1,5 +1,5 @@
 # No. of workers
-N_PROCS=11
+N_PROCS=8
 
 # Define number of workers
 WORKERS := $(shell seq -s, 1 $$(($(N_PROCS) - 1)) | sed 's/[0-9]\+/w&/g')
@@ -25,7 +25,7 @@ DATASET=amazon-dataset
 N_ROWS=26210		# num of input samples in trainset, ie. X1, X2, X3... Xd
 N_COLS=241915		# num of features per input, ie. x1, x2, x3... xp
 
-# DATASET=covtype_ds
+# DATASET=covtype
 # N_ROWS=19805		# num of input samples in trainset, ie. X1, X2, X3... Xd
 # N_COLS=15092		# num of features per input, ie. x1, x2, x3... xp
 
@@ -56,5 +56,5 @@ partialrepcoded:
 partialcyccoded:
 	mpirun -np $(N_PROCS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) $(N_PARTITIONS) 0
 
-B_test:
-	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 3
+bibd:
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3
