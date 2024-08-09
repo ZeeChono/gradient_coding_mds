@@ -7,7 +7,7 @@ import time
 from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
 
-def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
+def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
