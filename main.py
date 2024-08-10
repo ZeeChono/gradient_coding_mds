@@ -96,8 +96,8 @@ if is_coded:
 
         elif coded_ver == 4:    # SPG
             encoding_matrix_csv = sys.argv[11]
-            L = int(sys.argv[12])
-            lambda_ = int(sys.argv[13])
+            L = float(sys.argv[12])
+            lambda_ = float(sys.argv[13])
             encoding_matrix_path = os.path.join(home, input_dir, encoding_matrix_csv)
             
             B = np.loadtxt(encoding_matrix_path, delimiter=',')  # Load encoding matrix from CSV file

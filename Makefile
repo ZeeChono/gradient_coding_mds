@@ -13,6 +13,15 @@ N_PARTITIONS=10
 # Switch to enable partial coded schemes
 PARTIAL_CODED=0
 
+# Name of the encoding csv
+ENCODING_FILE=sp_encoding_martix_37.csv
+
+# L parameter for BIBD
+L=8.6
+
+# Lambda parameter for BIBD
+LAMBDA=2
+
 # Path to folder containing the data folders
 DATA_FOLDER=dataset
 
@@ -58,3 +67,6 @@ partialcyccoded:
 
 bibd:
 	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3
+
+spg:
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(ENCODING_FILE) $(L) $(LAMBDA)
