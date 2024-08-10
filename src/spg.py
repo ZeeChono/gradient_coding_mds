@@ -6,6 +6,7 @@ import scipy.sparse as sps
 import time
 from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
+from datetime import datetime
 
 def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
 
@@ -246,11 +247,14 @@ def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_straggl
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, os.path.join(output_dir, "replication_acc_%d_training_loss.dat"%(n_stragglers)))
-        save_vector(testing_loss, os.path.join(output_dir, "replication_acc_%d_testing_loss.dat"%(n_stragglers)))
-        save_vector(auc_loss, os.path.join(output_dir, "replication_acc_%d_auc.dat"%(n_stragglers)))
-        save_vector(timeset, os.path.join(output_dir, "replication_acc_%d_timeset.dat"%(n_stragglers)))
-        save_matrix(worker_timeset, os.path.join(output_dir, "replication_acc_%d_worker_timeset.dat"%(n_stragglers)))
+        # Get the current timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        save_vector(training_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_training_loss_{timestamp}.dat"))
+        save_vector(testing_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_testing_loss_{timestamp}.dat"))
+        save_vector(auc_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_auc_{timestamp}.dat"))
+        save_vector(timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_timeset_{timestamp}.dat"))
+        save_matrix(worker_timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_worker_timeset_{timestamp}.dat"))
         print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()
