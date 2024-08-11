@@ -1,6 +1,4 @@
 from __future__ import print_function
-import sys
-import random
 import os
 import numpy as np
 import itertools
@@ -162,3 +160,41 @@ def compute_acc(label_y, pred_y):
 ## Compute normal gradient decent
 def comput_gd(beta, g, alpha):
     return (beta - alpha*g)
+
+## Compute numpy SPG encoding matrix:
+def SPG_generator(N, K, L, lamda, gamma):
+    # set the seed
+    np.random.seed(42)
+    B = np.random.binomial(1, gamma, size=(K,N))
+    X = np.zeros((K,N))
+
+    # compute the params to configure X matrix
+    a = L/(K*gamma)
+    b = float(L*gamma/K - L*L/(K*K)) / (gamma*gamma)
+    c = (lamda/K - L*L/(K*K)) / (gamma*gamma)
+    # mean vector
+    u = a * np.ones(N)
+    # covariance matrix
+    cov = np.full((N, N), c)
+    
+    np.fill_diagonal(cov, b)
+    if is_positive_semi_definite(cov):
+        for i in range(K):
+            X[i, :] = np.random.multivariate_normal(u, cov)
+        SPG = X*B
+    else: 
+        raise RuntimeError("The covariance matrix is not PSD")
+
+    return u, cov, SPG
+
+## judge if the matrix is PSD
+def is_positive_semi_definite(matrix):
+    # Check if the matrix is symmetric
+    if not np.allclose(matrix, matrix.T):
+        return False
+    
+    # Compute the eigenvalues
+    eigenvalues = np.linalg.eigvals(matrix)
+    
+    # Check if all eigenvalues are non-negative
+    return np.all(eigenvalues >= 0)
