@@ -15,12 +15,46 @@ from spg import *
 import numpy as np
 from mpi4py import MPI
 import os
+import logging
+
+
+
+# Class to redirect print statements to logging
+class LoggerWriter:
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+        self.buffer = ''
+        
+    def write(self, message):
+        if message != '\n':  # Ignore newlines
+            self.logger.log(self.level, message.strip())
+            
+    def flush(self):
+        pass
+
+def setup_logger(test_name, seq):
+    log_dir = os.path.join(home, "log")
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    log_filename = os.path.join(log_dir, f'{test_name}_{seq}.txt')
+
+    logging.basicConfig(
+        filename=os.path.join(home, log_filename),
+        level=logging.INFO,
+        format="%(name)s: %(asctime)s | %(levelname)s || %(message)s",
+    )
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))  # To also log to the console
+    # # Redirect stdout and stderr to the logging system
+    sys.stdout = LoggerWriter(logging.getLogger(), logging.INFO)
+    sys.stderr = LoggerWriter(logging.getLogger(), logging.ERROR)
+    logging.info(f"Starting run {seq}:")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-if len(sys.argv) != 11 and len(sys.argv) != 14:
+if len(sys.argv) != 11 and len(sys.argv) != 15:
     print("Usage: python main.py n_procs n_rows n_cols input_dir is_real dataset is_coded n_stragglers partial_straggler_partitions coded_ver [encoding_matrix_csv L lambda]")
     sys.exit(0)
 
@@ -71,15 +105,23 @@ if is_coded:
             
     else:           # total stragglers
         if(coded_ver == 0): # Cyclcic
+            if rank == 0:
+                setup_logger("CRC", 1)
             coded_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
             
         elif(coded_ver == 1):   # Repitition
+            if rank == 0:
+                setup_logger("FRC", 1)
             replication_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
 
         elif(coded_ver ==2):    # Ignore
+            if rank == 0:
+                setup_logger("Ignore", 1)
             avoidstragg_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
         
         elif(coded_ver ==3):    # bibd
+            if rank == 0:
+                setup_logger("BIBD", 1)
             B = np.array([
                 [1, 1, 1, 0, 0, 0, 0],
                 [1, 0, 0, 1, 1, 0, 0],
@@ -95,6 +137,9 @@ if is_coded:
             bibd_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
 
         elif coded_ver == 4:    # SPG
+            seq = sys.argv[14]
+            if rank == 0:
+                setup_logger("SPG", seq)
             encoding_matrix_csv = sys.argv[11]
             L = float(sys.argv[12])
             lambda_ = float(sys.argv[13])

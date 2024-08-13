@@ -95,5 +95,5 @@ avoidstragg_multiple_times:
 spg_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running spg iteration $$i"; \
-	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(ENCODING_FILE) $(L) $(LAMBDA); \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(ENCODING_FILE) $(L) $(LAMBDA) $$i; \
 	done
