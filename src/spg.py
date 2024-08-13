@@ -98,7 +98,6 @@ def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_straggl
 
         A_row = np.zeros((1,n_procs-1))
 
-        betaset = np.zeros((num_itrs, n_features))
         timeset = np.zeros(num_itrs)
         worker_timeset=np.zeros((num_itrs, n_procs-1))  # each iter, how long does it take each worker to compute g
 
