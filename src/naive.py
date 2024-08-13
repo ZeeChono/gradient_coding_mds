@@ -9,6 +9,7 @@ import time
 from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
 import pdb
+from datetime import datetime
 
 def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
     comm = MPI.COMM_WORLD
@@ -232,11 +233,14 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, os.path.join(output_dir, "naive_acc_training_loss.dat"))
-        save_vector(testing_loss, os.path.join(output_dir, "naive_acc_testing_loss.dat"))
-        save_vector(auc_loss, os.path.join(output_dir, "naive_acc_auc.dat"))
-        save_vector(timeset, os.path.join(output_dir, "naive_acc_timeset.dat"))
-        save_matrix(worker_timeset, os.path.join(output_dir, "naive_acc_worker_timeset.dat"))
+        # Get the current timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        save_vector(training_loss, os.path.join(output_dir, f"naive_acc_training_loss_{timestamp}.dat"))
+        save_vector(testing_loss, os.path.join(output_dir, f"naive_acc_testing_loss_{timestamp}.dat"))
+        save_vector(auc_loss, os.path.join(output_dir, f"naive_acc_auc_{timestamp}.dat"))
+        save_vector(timeset, os.path.join(output_dir, f"naive_acc_timeset_{timestamp}.dat"))
+        save_matrix(worker_timeset, os.path.join(output_dir, f"naive_acc_worker_timeset_{timestamp}.dat"))
         print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()

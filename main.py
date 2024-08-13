@@ -11,6 +11,7 @@ from avoidstragg import *
 from partial_replication import *
 from partial_coded import *
 from bibd import *
+from spg import *
 import numpy as np
 from mpi4py import MPI
 import os
@@ -19,11 +20,11 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-if len(sys.argv) != 11:
-    print("Usage: python main.py n_procs n_rows n_cols input_dir is_real dataset is_coded n_stragglers partial_straggler_partitions coded_ver num_itrs")
+if len(sys.argv) != 11 and len(sys.argv) != 14:
+    print("Usage: python main.py n_procs n_rows n_cols input_dir is_real dataset is_coded n_stragglers partial_straggler_partitions coded_ver [encoding_matrix_csv L lambda]")
     sys.exit(0)
 
-n_procs, n_rows, n_cols, input_dir, is_real, dataset, is_coded, n_stragglers , partitions, coded_ver  = [x for x in sys.argv[1:]]
+n_procs, n_rows, n_cols, input_dir, is_real, dataset, is_coded, n_stragglers , partitions, coded_ver  = [x for x in sys.argv[1:11]]
 n_procs, n_rows, n_cols, is_real, is_coded, n_stragglers , partitions, coded_ver = int(n_procs), int(n_rows), int(n_cols), int(is_real), int(is_coded), int(n_stragglers), int(partitions), int(coded_ver)
 input_dir = input_dir+"/" if not input_dir[-1] == "/" else input_dir
 
@@ -93,6 +94,18 @@ if is_coded:
             params.append(1)    # lamda
             bibd_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
 
+        elif coded_ver == 4:    # SPG
+            encoding_matrix_csv = sys.argv[11]
+            L = float(sys.argv[12])
+            lambda_ = float(sys.argv[13])
+            encoding_matrix_path = os.path.join(home, input_dir, encoding_matrix_csv)
+            
+            B = np.loadtxt(encoding_matrix_path, delimiter=',')  # Load encoding matrix from CSV file
+            params.append(B)
+            params.append(L)  # L
+            params.append(lambda_)  # lambda
+            spg_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
+            
 else:   # not coded implementation == Naive
     # general_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
     naive_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)

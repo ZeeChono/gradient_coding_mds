@@ -1,3 +1,6 @@
+# Number of iterations for the commands
+NUM_TIMES ?= 10
+
 # No. of workers
 N_PROCS=8
 
@@ -13,6 +16,15 @@ N_PARTITIONS=10
 # Switch to enable partial coded schemes
 PARTIAL_CODED=0
 
+# Name of the encoding csv
+ENCODING_FILE=bibd_matrix_37.csv
+
+# L parameter for BIBD
+L=8.6
+
+# Lambda parameter for BIBD
+LAMBDA=2
+
 # Path to folder containing the data folders
 DATA_FOLDER=dataset
 
@@ -22,7 +34,7 @@ IS_REAL=1
 # Dataset directory name
 # eg. /home/ubuntu/dataset/amazon-dataset/...
 DATASET=amazon-dataset
-N_ROWS=26210		# num of input samples in trainset, ie. X1, X2, X3... Xd
+N_ROWS=26215		# num of input samples in trainset, ie. X1, X2, X3... Xd
 N_COLS=241915		# num of features per input, ie. x1, x2, x3... xp
 
 # DATASET=covtype
@@ -58,3 +70,30 @@ partialcyccoded:
 
 bibd:
 	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3
+
+spg:
+	mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(ENCODING_FILE) $(L) $(LAMBDA)
+
+naive_multiple_times:
+	@for i in $$(seq 1 $(NUM_TIMES)); do \
+	    echo "Running naive iteration $$i"; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0; \
+	done
+
+cyccoded_multiple_times:
+	@for i in $$(seq 1 $(NUM_TIMES)); do \
+	    echo "Running cyccoded iteration $$i"; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 0; \
+	done
+
+avoidstragg_multiple_times:
+	@for i in $$(seq 1 $(NUM_TIMES)); do \
+	    echo "Running avoidstragg iteration $$i"; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 2; \
+	done
+
+spg_multiple_times:
+	@for i in $$(seq 1 $(NUM_TIMES)); do \
+	    echo "Running spg iteration $$i"; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(ENCODING_FILE) $(L) $(LAMBDA); \
+	done
