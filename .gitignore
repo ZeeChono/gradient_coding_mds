@@ -12,3 +12,6 @@ env/
 
 # Ignore specific directories
 /src/__pycache__/
+
+# Ignore log files
+log*
