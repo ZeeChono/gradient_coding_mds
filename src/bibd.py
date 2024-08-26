@@ -65,11 +65,11 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
         x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
         rows_per_partition = x_read_temp.shape[0]
 
-        # loop through the rank-th row of encoding matrix B to allocate data to each worker
-        row = B[rank-1]
+        # loop through the rank-th column of encoding matrix B to allocate data to each worker
+        bi = B[:,rank-1]
         first = True
-        for i in range(len(row)):
-            if row[i] != 0:     # if the i-th element non-trivial
+        for i in range(len(bi)):
+            if bi[i] != 0:     # if the i-th element non-trivial
                 # print(f"Worker-{rank} load data partition {i+1}")
                 if first:
                     X_current = load_sparse_csr(os.path.join(input_dir, str(i+1)))
@@ -95,7 +95,6 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
 
         A_row = np.zeros((1,n_procs-1))
 
-        betaset = np.zeros((num_itrs, n_features))
         timeset = np.zeros(num_itrs)
         worker_timeset=np.zeros((num_itrs, n_procs-1))  # each iter, how long does it take each worker to compute g
 
@@ -136,7 +135,7 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
     ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
     ##########################################################################
     if rank == 0:
-        print("---- Starting Replication Iterations for " +str(n_stragglers) + " stragglers ----")
+        print("---- Starting BIBD Iterations for " +str(n_stragglers) + " stragglers ----")
         orig_start_time = time.time()
 
     for i in range(num_itrs):
@@ -237,18 +236,18 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
 
         # plot the image
         cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
-        sim_type = "rep"
+        sim_type = "bibd"
         plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers)
 
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, os.path.join(output_dir, "replication_acc_%d_training_loss.dat"%(n_stragglers)))
-        save_vector(testing_loss, os.path.join(output_dir, "replication_acc_%d_testing_loss.dat"%(n_stragglers)))
-        save_vector(auc_loss, os.path.join(output_dir, "replication_acc_%d_auc.dat"%(n_stragglers)))
-        save_vector(timeset, os.path.join(output_dir, "replication_acc_%d_timeset.dat"%(n_stragglers)))
-        save_matrix(worker_timeset, os.path.join(output_dir, "replication_acc_%d_worker_timeset.dat"%(n_stragglers)))
+        save_vector(training_loss, os.path.join(output_dir, "bibd_acc_%d_training_loss.dat"%(n_stragglers)))
+        save_vector(testing_loss, os.path.join(output_dir, "bibd_acc_%d_testing_loss.dat"%(n_stragglers)))
+        save_vector(auc_loss, os.path.join(output_dir, "bibd_acc_%d_auc.dat"%(n_stragglers)))
+        save_vector(timeset, os.path.join(output_dir, "bibd_acc_%d_timeset.dat"%(n_stragglers)))
+        save_matrix(worker_timeset, os.path.join(output_dir, "bibd_acc_%d_worker_timeset.dat"%(n_stragglers)))
         print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()

@@ -61,27 +61,26 @@ def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_straggl
     if (rank):
         
         y = load_data(os.path.join(input_dir, "label.dat"))
-        print(y.shape)
         # For real dataset, read in one example file and determine how many samples we have
         x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
         rows_per_partition = x_read_temp.shape[0]
 
-        # loop through the rank-th row of encoding matrix B to allocate data to each worker
-        row = B[rank-1]
+        # loop through the rank-th column of encoding matrix B to allocate data to each worker
+        bi = B[:, rank-1]
         first = True
-        for i in range(len(row)):
-            if row[i] != 0:     # if the i-th element non-trivial
+        for i in range(len(bi)):
+            if bi[i] != 0:     # if the i-th element non-trivial
                 # print(f"Worker-{rank} load data partition {i+1}")
                 if first:
                     X_current = load_sparse_csr(os.path.join(input_dir, str(i+1)))
                     y_current = y[i*rows_per_partition:(i+1)*rows_per_partition]    # y is an 1-d array
-                    y_current_mod = row[i]*y[i*rows_per_partition:(i+1)*rows_per_partition] # modifies y_current by multiplying different segments of it with corresponding elements from B matrix
+                    y_current_mod = bi[i]*y[i*rows_per_partition:(i+1)*rows_per_partition] # modifies y_current by multiplying different segments of it with corresponding elements from B matrix
                     first = False
                 else:
                     X_temp = load_sparse_csr(os.path.join(input_dir, str(i+1)))
                     X_current = sps.vstack((X_current,X_temp))
                     y_current = np.hstack((y_current,y[i*rows_per_partition:(i+1)*rows_per_partition]))
-                    y_current_mod = np.hstack((y_current_mod,row[i]*y[i*rows_per_partition:(i+1)*rows_per_partition])) # modifies y_current by multiplying different segments of it with corresponding elements from B matrix
+                    y_current_mod = np.hstack((y_current_mod,bi[i]*y[i*rows_per_partition:(i+1)*rows_per_partition])) # modifies y_current by multiplying different segments of it with corresponding elements from B matrix
         # print(f"Worker-{rank} has load data X with shape: {X_current.shape} and y with shape {y_current.shape}")
 
     # Initializing relevant variables            
@@ -138,7 +137,7 @@ def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_straggl
     ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
     ##########################################################################
     if rank == 0:
-        print("---- Starting Replication Iterations for " +str(n_stragglers) + " stragglers ----")
+        print("---- Starting SPG Iterations for " +str(n_stragglers) + " stragglers ----")
         orig_start_time = time.time()
 
     for i in range(num_itrs):
@@ -247,13 +246,19 @@ def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_straggl
             os.makedirs(output_dir)
 
         # Get the current timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        save_vector(training_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_training_loss_{timestamp}.dat"))
-        save_vector(testing_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_testing_loss_{timestamp}.dat"))
-        save_vector(auc_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_auc_{timestamp}.dat"))
-        save_vector(timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_timeset_{timestamp}.dat"))
-        save_matrix(worker_timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_worker_timeset_{timestamp}.dat"))
+        # save_vector(training_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_training_loss_{timestamp}.dat"))
+        # save_vector(testing_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_testing_loss_{timestamp}.dat"))
+        # save_vector(auc_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_auc_{timestamp}.dat"))
+        # save_vector(timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_timeset_{timestamp}.dat"))
+        # save_matrix(worker_timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_worker_timeset_{timestamp}.dat"))
+
+        save_vector(training_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_training_loss.dat"))
+        save_vector(testing_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_testing_loss.dat"))
+        save_vector(auc_loss, os.path.join(output_dir, f"spg_acc_{n_stragglers}_auc.dat"))
+        save_vector(timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_timeset.dat"))
+        save_matrix(worker_timeset, os.path.join(output_dir, f"spg_acc_{n_stragglers}_worker_timeset.dat"))
         print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()

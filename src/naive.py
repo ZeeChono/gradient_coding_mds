@@ -220,9 +220,9 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
 
 
         for i in range(num_itrs):
-            print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, acc = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], acc[i], timeset[i]))
+            print("Iteration %d: Train Loss = %5.3f, Test Loss = %5.3f, AUC = %5.3f, ACC = %5.3f, Total time taken =%5.3f"%(i, training_loss[i], testing_loss[i], auc_loss[i], acc[i], timeset[i]))
 
-        # plot the image
+        # plot the image AUC vs time
         output_dir = "./out/"
         cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
         sim_type = "naive"
@@ -234,13 +234,19 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             os.makedirs(output_dir)
 
         # Get the current timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        save_vector(training_loss, os.path.join(output_dir, f"naive_acc_training_loss_{timestamp}.dat"))
-        save_vector(testing_loss, os.path.join(output_dir, f"naive_acc_testing_loss_{timestamp}.dat"))
-        save_vector(auc_loss, os.path.join(output_dir, f"naive_acc_auc_{timestamp}.dat"))
-        save_vector(timeset, os.path.join(output_dir, f"naive_acc_timeset_{timestamp}.dat"))
-        save_matrix(worker_timeset, os.path.join(output_dir, f"naive_acc_worker_timeset_{timestamp}.dat"))
+        # save_vector(training_loss, os.path.join(output_dir, f"naive_acc_training_loss_{timestamp}.dat"))
+        # save_vector(testing_loss, os.path.join(output_dir, f"naive_acc_testing_loss_{timestamp}.dat"))
+        # save_vector(auc_loss, os.path.join(output_dir, f"naive_acc_auc_{timestamp}.dat"))
+        # save_vector(timeset, os.path.join(output_dir, f"naive_acc_timeset_{timestamp}.dat"))
+        # save_matrix(worker_timeset, os.path.join(output_dir, f"naive_acc_worker_timeset_{timestamp}.dat"))
+
+        save_vector(training_loss, os.path.join(output_dir, f"naive_acc_training_loss.dat"))
+        save_vector(testing_loss, os.path.join(output_dir, f"naive_acc_testing_loss.dat"))
+        save_vector(auc_loss, os.path.join(output_dir, f"naive_acc_auc.dat"))
+        save_vector(timeset, os.path.join(output_dir, f"naive_acc_timeset.dat"))
+        save_matrix(worker_timeset, os.path.join(output_dir, f"naive_acc_worker_timeset.dat"))
         print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
 
     comm.Barrier()
