@@ -106,7 +106,7 @@ bibd_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running bibd iteration $$i"; \
 	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) \
-		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1 | tee ~/log_bibd/BIBD_0_4_$$i.txt; \
+		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1 | tee ~/log_thtest/BIBD_0_4_$$i.txt; \
 	done
 
 
@@ -114,7 +114,7 @@ spg_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running spg iteration $$i"; \
 	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) \
-		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1 | tee ~/log_spg/SPG_0_4_$$i.txt; \
+		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1 | tee ~/log_thtest/SPG_0_4_$$i.txt; \
 	done
 
 
