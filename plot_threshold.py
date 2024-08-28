@@ -2,7 +2,7 @@
 Plot the AUC and ACC against fraction of stragglers
 ## User need to input file_paths and x values
 ## This script assumes user log are named in given format: using 0.1 straggling fraction as example:
-##      results\0_1\BIBD_0_1_1.txt
+##      results/0_1/BIBD_0_1_1.txt
 '''
 
 import re
@@ -15,7 +15,7 @@ ACC_REF = 0.953
 
 ############################### User inputs ###############################
 x = [0.1, 0.25, 0.4]        ## TODO: User input - Fractions of stragglers
-path = f"results/7worker_threshold" ## TODO: User input - path to logs
+path = f"/home/ubuntu/log_thtest" ## TODO: User input - path to logs
 ###########################################################################
 
 ## Get the y values required for plottings
@@ -33,7 +33,7 @@ def get_y(path, test_name, rounds, x):
         # Replace the decimal point with an underscore
         x_mod = x_str.replace('.', '_')
 
-        file_prefix = f"{path}/{x_mod}/{test_name}_{x_mod}"
+        file_prefix = f"{path}/{test_name}_{x_mod}"
         AUC_tmp, ACC_tmp = process_file(file_prefix, rounds)
 
         # store the avg, max, and min values
