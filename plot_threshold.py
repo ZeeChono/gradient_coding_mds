@@ -1,7 +1,9 @@
-## Plot the AUC and ACC against fraction of stragglers
+''' 
+Plot the AUC and ACC against fraction of stragglers
 ## User need to input file_paths and x values
 ## This script assumes user log are named in given format: using 0.1 straggling fraction as example:
 ##      results\0_1\BIBD_0_1_1.txt
+'''
 
 import re
 import matplotlib.pyplot as plt
@@ -11,6 +13,10 @@ import numpy as np
 AUC_REF = 0.883
 ACC_REF = 0.953
 
+############################### User inputs ###############################
+x = [0.1, 0.25, 0.4]        ## TODO: User input - Fractions of stragglers
+path = f"results/7worker_threshold" ## TODO: User input - path to logs
+###########################################################################
 
 ## Get the y values required for plottings
 def get_y(path, test_name, rounds, x):
@@ -89,9 +95,6 @@ def process_file(file_prefix, rounds):
 
 # Plot values x and y
 ##################################
-x = [0.1, 0.25, 0.4]        ## TODO: User input - Fractions of stragglers
-
-path = f"results/7worker_threshold" ## TODO: User input - path to logs
 BIBD_AUC_y, BIBD_AUC_y_max, BIBD_AUC_y_min, BIBD_ACC_y, BIBD_ACC_y_max, BIBD_ACC_y_min = get_y(path,"BIBD",10,x)
 SPG_AUC_y, SPG_AUC_y_max, SPG_AUC_y_min, SPG_ACC_y, SPG_ACC_y_max, SPG_ACC_y_min = get_y(path,"SPG",10,x)
 
