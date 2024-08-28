@@ -15,40 +15,8 @@ from spg import *
 import numpy as np
 from mpi4py import MPI
 import os
-import logging
 
 
-
-# Class to redirect print statements to logging
-class LoggerWriter:
-    def __init__(self, logger, level):
-        self.logger = logger
-        self.level = level
-        self.buffer = ''
-        
-    def write(self, message):
-        if message != '\n':  # Ignore newlines
-            self.logger.log(self.level, message.strip())
-            
-    def flush(self):
-        pass
-
-def setup_logger(test_name, seq):
-    log_dir = os.path.join(home, "log") # Note: one can change customized log file name
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    log_filename = os.path.join(log_dir, f'{test_name}_{seq}.txt')
-
-    logging.basicConfig(
-        filename=os.path.join(home, log_filename),
-        level=logging.INFO,
-        format="%(name)s: %(asctime)s | %(levelname)s || %(message)s",
-    )
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))  # To also log to the console
-    # # Redirect stdout and stderr to the logging system
-    sys.stdout = LoggerWriter(logging.getLogger(), logging.INFO)
-    sys.stderr = LoggerWriter(logging.getLogger(), logging.ERROR)
-    logging.info(f"Starting run {test_name} at {seq}:")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -65,23 +33,6 @@ n_procs, n_rows, n_cols, input_dir, is_real, dataset, is_coded, n_stragglers , p
 n_procs, n_rows, n_cols, is_real, is_coded, n_stragglers , partitions, coded_ver = int(n_procs), int(n_rows), int(n_cols), int(is_real), int(is_coded), int(n_stragglers), int(partitions), int(coded_ver)
 input_dir = input_dir+"/" if not input_dir[-1] == "/" else input_dir
 
-
-if int(sys.argv[-1]) == 1:    # if want to run multiple times:
-    rnd = int(sys.argv[-2])  # locate the current round
-    if rank == 0:
-        if is_coded == 0:
-            setup_logger("NAIVE", rnd)
-        else:
-            if coded_ver == 0:
-                setup_logger("CRC", rnd)
-            elif coded_ver == 1:
-                setup_logger("FRC", rnd)
-            elif coded_ver == 2:
-                setup_logger("Ignore", rnd)
-            elif coded_ver == 3:
-                setup_logger("BIBD", rnd)
-            elif coded_ver == 4: 
-                setup_logger("SPG", rnd)
 
 
 # ---- Modifiable parameters

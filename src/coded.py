@@ -269,6 +269,6 @@ def coded_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         save_vector(auc_loss, os.path.join(output_dir, f"coded_acc_{n_stragglers}_auc_{timestamp}.dat"))
         save_vector(timeset, os.path.join(output_dir, f"coded_acc_{n_stragglers}_timeset_{timestamp}.dat"))
         save_matrix(worker_timeset, os.path.join(output_dir, f"coded_acc_{n_stragglers}_worker_timeset_{timestamp}.dat"))
-        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
+        print(f">>> Done with avg iter_time: {np.average(timeset)}")
 
     comm.Barrier()

@@ -247,6 +247,6 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
         save_vector(auc_loss, os.path.join(output_dir, f"naive_acc_auc.dat"))
         save_vector(timeset, os.path.join(output_dir, f"naive_acc_timeset.dat"))
         save_matrix(worker_timeset, os.path.join(output_dir, f"naive_acc_worker_timeset.dat"))
-        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
+        print(f">>> Done with avg iter_time: {np.average(timeset)}")
 
     comm.Barrier()

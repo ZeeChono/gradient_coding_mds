@@ -51,7 +51,7 @@ N_COLS=241915		# num of features per input, ie. x1, x2, x3... xp
 MULTIPLE = 0
 
 # Number of iterations for the commands
-NUM_TIMES ?= 3
+NUM_TIMES ?= 100
 
 
 generate_random_data:
@@ -87,7 +87,7 @@ spg:
 naive_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running naive iteration $$i"; \
-	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0 $$i 1; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0 $$i 1 | tee ~/log_naive/NAIVE_$$i.txt; \
 	done
 
 cyccoded_multiple_times:
@@ -102,10 +102,19 @@ avoidstragg_multiple_times:
 	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 2 $$i 1; \
 	done
 
+bibd_multiple_times:
+	@for i in $$(seq 1 $(NUM_TIMES)); do \
+	    echo "Running bibd iteration $$i"; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) \
+		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1 | tee ~/log_bibd/BIBD_0_4_$$i.txt; \
+	done
+
+
 spg_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running spg iteration $$i"; \
-	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(ENCODING_FILE) $(L2) $(LAMBDA2) $$i 1; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) \
+		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1 | tee ~/log_spg/SPG_0_4_$$i.txt; \
 	done
 
 
