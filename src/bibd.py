@@ -7,7 +7,7 @@ import time
 from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
 
-def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
+def bibd_logistic_regression(n_procs, n_samples, n_features, dataset, input_dir, n_stragglers, is_real_data, params):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -60,7 +60,7 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
     if (rank):
         
         y = load_data(os.path.join(input_dir, "label.dat"))
-        print(y.shape)
+
         # For real dataset, read in one example file and determine how many samples we have
         x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
         rows_per_partition = x_read_temp.shape[0]
@@ -176,16 +176,37 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
             # docoding stage:
             g = np.squeeze(np.dot(A_row, msgBuffers)) # get the weighted sum of the gradients from workers and sqeeze it to a one dimensional array
 
-            grad_multiplier = eta0[i]/n_samples
-            # ---- update step for gradient descent
-            # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+            ################################ Amazon-dataset ################################
+            if dataset == "amazon-dataset":
+                grad_multiplier = eta0[i]/n_samples     # learning rate at i-th iter / num of samples
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
 
-            # ---- updates for accelerated gradient descent
-            theta = 2.0/(i+2.0)
-            ytemp = (1-theta)*beta + theta*utemp
-            betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta
-            utemp = beta + (betatemp-beta)*(1/theta)
-            beta[:] = betatemp
+                # ---- updates for accelerated gradient descent
+                theta = 2.0/(i+2.0)
+                ytemp = (1-theta)*beta + theta*utemp
+                betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                utemp = beta + (betatemp-beta)*(1/theta)
+                beta[:] = betatemp      # the same model to broadcast for the next iteration
+            #################################################################################
+            
+
+            ################################ Covtype-dataset ################################
+            if dataset == "covtype_bibd":
+                grad_multiplier = 1e-1/n_samples    # learning rate at i-th iter / num of samples
+                # grad_multiplier = eta0[i]
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+
+                # ---- updates for accelerated gradient descent
+                if i <= 100:
+                    theta = 2.0/(i+2.0)
+                    ytemp = (1-theta)*beta + theta*utemp
+                    betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                    utemp = beta + (betatemp-beta)*(1/theta)
+                    beta[:] = betatemp      # the same model to broadcast for the next iteration
+                beta[:] = beta - grad_multiplier*g
+            #################################################################################
 
             timeset[i] = time.time() - start_time
 

@@ -36,7 +36,10 @@ input_dir = input_dir+"/" if not input_dir[-1] == "/" else input_dir
 
 
 # ---- Modifiable parameters
-num_itrs = 100 # Number of iterations
+if dataset == "amazon-dataset":
+    num_itrs = 100 # Number of iterations
+elif dataset == "covtype_bibd":
+    num_itrs = 1000 # Number of iterations
 
 alpha = 1.0/n_rows #sometimes we used 0.0001 # --- coefficient of l2 regularization
 
@@ -95,7 +98,7 @@ if is_coded:
             params.append(B)
             params.append(L)  # L
             params.append(lambda_)  # lambda
-            bibd_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
+            bibd_logistic_regression(n_procs, n_rows, n_cols, dataset, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
 
         elif coded_ver == 4:    # SPG
             encoding_matrix_csv = sys.argv[11]
@@ -105,10 +108,10 @@ if is_coded:
             params.append(B)
             params.append(L)  # L
             params.append(lambda_)  # lambda
-            spg_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
+            spg_logistic_regression(n_procs, n_rows, n_cols, dataset, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
             
 else:   # not coded implementation == Naive
-    naive_logistic_regression(n_procs, n_rows, n_cols, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
+    naive_logistic_regression(n_procs, n_rows, n_cols, dataset, os.path.join(home, input_dir, dataset, str(n_procs-1)), n_stragglers, is_real, params)
 
 comm.Barrier()  # Barrier synchronization
 MPI.Finalize()  # Terminate the MPI execution environment

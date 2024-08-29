@@ -8,10 +8,9 @@ import scipy.sparse as sps
 import time
 from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
-import pdb
 from datetime import datetime
 
-def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
+def naive_logistic_regression(n_procs, n_samples, n_features, dataset, input_dir, n_stragglers, is_real_data, params):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -151,28 +150,46 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
                 src = status.Get_source()
                 # print(f"from source: {src}")    # src = 1 and 2 which is the same as rank value
                 worker_timeset[i,src-1] = time.time()-start_time
+                # print(f"Receive: worker {src-1} has time: {worker_timeset[i,src-1]}")
                 request_set[i].pop(req_done)    # pop that request
                 
                 g += msgBuffers[src-1]   # add the partial gradients
                 cnt_completed += 1
 
-            grad_multiplier = eta0[i]/n_samples     # learning rate at i-th iter / num of samples
-            # ---- update step for gradient descent
-            # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+            ################################ Amazon-dataset ################################
+            if dataset == "amazon-dataset":
+                grad_multiplier = eta0[i]/n_samples     # learning rate at i-th iter / num of samples
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
 
-            # ---- updates for accelerated gradient descent
-            ## TODO: check what this accelerated gradient descent come from -- NAG algorithm
-            theta = 2.0/(i+2.0)
-            ytemp = (1-theta)*beta + theta*utemp
-            betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
-            utemp = beta + (betatemp-beta)*(1/theta)
-            beta[:] = betatemp      # the same model to broadcast for the next iteration
+                # ---- updates for accelerated gradient descent
+                ## TODO: check what this accelerated gradient descent come from -- NAG algorithm
+                theta = 2.0/(i+2.0)
+                ytemp = (1-theta)*beta + theta*utemp
+                betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                utemp = beta + (betatemp-beta)*(1/theta)
+                beta[:] = betatemp      # the same model to broadcast for the next iteration
+            #################################################################################
             
-            ################
-            ### EASY gd ####
-            # print(f"LR = {grad_multiplier}")
-            # beta = comput_gd(beta, g, 5e-7)
-            ################
+
+            ################################ Covtype-dataset ################################
+            if dataset == "covtype_bibd":
+                grad_multiplier = 1e-1/n_samples    # learning rate at i-th iter / num of samples
+                # grad_multiplier = eta0[i]
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+
+                # ---- updates for accelerated gradient descent
+                ## TODO: check what this accelerated gradient descent come from -- NAG algorithm
+                
+                if i <= 100:
+                    theta = 2.0/(i+2.0)
+                    ytemp = (1-theta)*beta + theta*utemp
+                    betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                    utemp = beta + (betatemp-beta)*(1/theta)
+                    beta[:] = betatemp      # the same model to broadcast for the next iteration
+                beta[:] = beta - grad_multiplier*g
+            #################################################################################
 
             timeset[i] = time.time() - start_time
             # betaset[i,:] = beta     # model at the i-th iteration
@@ -201,10 +218,12 @@ def naive_logistic_regression(n_procs, n_samples, n_features, input_dir, n_strag
             # if not sendTestBuf[0]:
             #     send_req.Cancel()
 
+            # compute_time = time.time()
             predy = X_current.dot(beta)
 
             g = X_current.T.dot(np.divide(y_current,np.exp(np.multiply(predy,y_current))+1))
             g *= -1
+            # print(f"Compute: worker {rank - 1} has time: {time.time() - compute_time}")
             send_req = comm.Isend([g, MPI.DOUBLE], dest=0, tag=i)
 
     #####################################################################################################

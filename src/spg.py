@@ -8,7 +8,7 @@ from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
 from datetime import datetime
 
-def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
+def spg_logistic_regression(n_procs, n_samples, n_features, dataset, input_dir, n_stragglers, is_real_data, params):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -178,16 +178,37 @@ def spg_logistic_regression(n_procs, n_samples, n_features, input_dir, n_straggl
             # docoding stage:
             g = np.squeeze(np.dot(A_row, msgBuffers)) # get the weighted sum of the gradients from workers and sqeeze it to a one dimensional array
 
-            grad_multiplier = eta0[i]/n_samples
-            # ---- update step for gradient descent
-            # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+            ################################ Amazon-dataset ################################
+            if dataset == "amazon-dataset":
+                grad_multiplier = eta0[i]/n_samples     # learning rate at i-th iter / num of samples
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
 
-            # ---- updates for accelerated gradient descent
-            theta = 2.0/(i+2.0)
-            ytemp = (1-theta)*beta + theta*utemp
-            betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta
-            utemp = beta + (betatemp-beta)*(1/theta)
-            beta[:] = betatemp
+                # ---- updates for accelerated gradient descent
+                theta = 2.0/(i+2.0)
+                ytemp = (1-theta)*beta + theta*utemp
+                betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                utemp = beta + (betatemp-beta)*(1/theta)
+                beta[:] = betatemp      # the same model to broadcast for the next iteration
+            #################################################################################
+            
+
+            ################################ Covtype-dataset ################################
+            if dataset == "covtype_bibd":
+                grad_multiplier = 1e-1/n_samples    # learning rate at i-th iter / num of samples
+                # grad_multiplier = eta0[i]
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+
+                # ---- updates for accelerated gradient descent                
+                if i <= 100:
+                    theta = 2.0/(i+2.0)
+                    ytemp = (1-theta)*beta + theta*utemp
+                    betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                    utemp = beta + (betatemp-beta)*(1/theta)
+                    beta[:] = betatemp      # the same model to broadcast for the next iteration
+                beta[:] = beta - grad_multiplier*g
+            #################################################################################
 
             timeset[i] = time.time() - start_time
 

@@ -40,8 +40,8 @@ DATASET=amazon-dataset
 N_ROWS=26215		# num of input samples in trainset, ie. X1, X2, X3... Xd
 N_COLS=241915		# num of features per input, ie. x1, x2, x3... xp
 
-# DATASET=covtype
-# N_ROWS=19805		# num of input samples in trainset, ie. X1, X2, X3... Xd
+# DATASET=covtype_bibd
+# N_ROWS=198050		# num of input samples in trainset, ie. X1, X2, X3... Xd
 # N_COLS=15092		# num of features per input, ie. x1, x2, x3... xp
 
 # Note that DATASET is automatically set to artificial-data/ (n_rows)x(n_cols)/... if IS_REAL is set to 0 \
@@ -106,7 +106,7 @@ bibd_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running bibd iteration $$i"; \
 	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) \
-		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1 | tee ~/log_thtest/BIBD_0_4_$$i.txt; \
+		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1 | tee ~/log_thtest/BIBD_0_1_$$i.txt; \
 	done
 
 
@@ -114,7 +114,7 @@ spg_multiple_times:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running spg iteration $$i"; \
 	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) \
-		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1 | tee ~/log_thtest/SPG_0_4_$$i.txt; \
+		$(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1 | tee ~/log_thtest/SPG_0_1_$$i.txt; \
 	done
 
 
@@ -122,7 +122,7 @@ spg_multiple_times:
 multiple_tests:
 	@for i in $$(seq 1 $(NUM_TIMES)); do \
 	    echo "Running iteration $$i"; \
-		mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0 $$i 1; \
-		mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1; \
-	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1; \
+		mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 0 $(N_STRAGGLERS) 0 0 $$i 1 | tee ~/log_1523/NAIVE_$$i.txt; \
+		mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 3 $(BIBD_FILE) $(L1) $(LAMBDA1) $$i 1 | tee ~/log_1523/BIBD_$$i.txt; \
+	    mpirun -np $(N_PROCS) -H localhost,$(WORKERS) python3 main.py $(N_PROCS) $(N_ROWS) $(N_COLS) $(DATA_FOLDER) $(IS_REAL) $(DATASET) 1 $(N_STRAGGLERS) 0 4 $(SPG_FILE) $(L2) $(LAMBDA2) $$i 1 | tee ~/log_1523/SPG_$$i.txt; \
 	done
