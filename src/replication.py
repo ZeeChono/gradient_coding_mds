@@ -263,6 +263,6 @@ def replication_logistic_regression(n_procs, n_samples, n_features, input_dir, n
         save_vector(auc_loss, os.path.join(output_dir, "replication_acc_%d_auc.dat"%(n_stragglers)))
         save_vector(timeset, os.path.join(output_dir, "replication_acc_%d_timeset.dat"%(n_stragglers)))
         save_matrix(worker_timeset, os.path.join(output_dir, "replication_acc_%d_worker_timeset.dat"%(n_stragglers)))
-        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
+        print(f">>> Done with avg iter_time: {np.average(timeset)}")
 
     comm.Barrier()

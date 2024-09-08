@@ -7,7 +7,7 @@ import time
 from mpi4py import MPI
 from sklearn.metrics import roc_curve, auc
 
-def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragglers, is_real_data, params):
+def bibd_logistic_regression(n_procs, n_samples, n_features, dataset, input_dir, n_stragglers, is_real_data, params):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -60,16 +60,16 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
     if (rank):
         
         y = load_data(os.path.join(input_dir, "label.dat"))
-        print(y.shape)
+
         # For real dataset, read in one example file and determine how many samples we have
         x_read_temp = load_sparse_csr(os.path.join(input_dir, "1")) # because all data zip are same shape
         rows_per_partition = x_read_temp.shape[0]
 
-        # loop through the rank-th row of encoding matrix B to allocate data to each worker
-        row = B[rank-1]
+        # loop through the rank-th column of encoding matrix B to allocate data to each worker
+        bi = B[:,rank-1]
         first = True
-        for i in range(len(row)):
-            if row[i] != 0:     # if the i-th element non-trivial
+        for i in range(len(bi)):
+            if bi[i] != 0:     # if the i-th element non-trivial
                 # print(f"Worker-{rank} load data partition {i+1}")
                 if first:
                     X_current = load_sparse_csr(os.path.join(input_dir, str(i+1)))
@@ -95,7 +95,6 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
 
         A_row = np.zeros((1,n_procs-1))
 
-        betaset = np.zeros((num_itrs, n_features))
         timeset = np.zeros(num_itrs)
         worker_timeset=np.zeros((num_itrs, n_procs-1))  # each iter, how long does it take each worker to compute g
 
@@ -136,7 +135,7 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
     ## SECOND STEP: ASSIGN JOBS TO EACH PROCESS, ENABLE COMMUNICATION
     ##########################################################################
     if rank == 0:
-        print("---- Starting Replication Iterations for " +str(n_stragglers) + " stragglers ----")
+        print("---- Starting BIBD Iterations for " +str(n_stragglers) + " stragglers ----")
         orig_start_time = time.time()
 
     for i in range(num_itrs):
@@ -177,16 +176,37 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
             # docoding stage:
             g = np.squeeze(np.dot(A_row, msgBuffers)) # get the weighted sum of the gradients from workers and sqeeze it to a one dimensional array
 
-            grad_multiplier = eta0[i]/n_samples
-            # ---- update step for gradient descent
-            # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+            ################################ Amazon-dataset ################################
+            if dataset == "amazon-dataset":
+                grad_multiplier = eta0[i]/n_samples     # learning rate at i-th iter / num of samples
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
 
-            # ---- updates for accelerated gradient descent
-            theta = 2.0/(i+2.0)
-            ytemp = (1-theta)*beta + theta*utemp
-            betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta
-            utemp = beta + (betatemp-beta)*(1/theta)
-            beta[:] = betatemp
+                # ---- updates for accelerated gradient descent
+                theta = 2.0/(i+2.0)
+                ytemp = (1-theta)*beta + theta*utemp
+                betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                utemp = beta + (betatemp-beta)*(1/theta)
+                beta[:] = betatemp      # the same model to broadcast for the next iteration
+            #################################################################################
+            
+
+            ################################ Covtype-dataset ################################
+            if dataset == "covtype_bibd":
+                grad_multiplier = 1e-1/n_samples    # learning rate at i-th iter / num of samples
+                # grad_multiplier = eta0[i]
+                # ---- update step for gradient descent
+                # np.subtract((1-2*alpha*eta0[i])*beta , grad_multiplier*g, out=beta)
+
+                # ---- updates for accelerated gradient descent
+                if i <= 100:
+                    theta = 2.0/(i+2.0)
+                    ytemp = (1-theta)*beta + theta*utemp
+                    betatemp = ytemp - grad_multiplier*g - (2*alpha*eta0[i])*beta       # l2 regularization
+                    utemp = beta + (betatemp-beta)*(1/theta)
+                    beta[:] = betatemp      # the same model to broadcast for the next iteration
+                beta[:] = beta - grad_multiplier*g
+            #################################################################################
 
             timeset[i] = time.time() - start_time
 
@@ -237,18 +257,18 @@ def bibd_logistic_regression(n_procs, n_samples, n_features, input_dir, n_stragg
 
         # plot the image
         cumulative_time = [sum(timeset[:i+1]) for i in range(len(timeset))]
-        sim_type = "rep"
+        sim_type = "bibd"
         plot_auc_vs_time(auc_loss, cumulative_time, sim_type, input_dir, n_workers, n_stragglers)
 
         output_dir = os.path.join(input_dir, "results")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        save_vector(training_loss, os.path.join(output_dir, "replication_acc_%d_training_loss.dat"%(n_stragglers)))
-        save_vector(testing_loss, os.path.join(output_dir, "replication_acc_%d_testing_loss.dat"%(n_stragglers)))
-        save_vector(auc_loss, os.path.join(output_dir, "replication_acc_%d_auc.dat"%(n_stragglers)))
-        save_vector(timeset, os.path.join(output_dir, "replication_acc_%d_timeset.dat"%(n_stragglers)))
-        save_matrix(worker_timeset, os.path.join(output_dir, "replication_acc_%d_worker_timeset.dat"%(n_stragglers)))
-        print(f">>> Done with avg iter_time: {cumulative_time[-1] / num_itrs}")
+        save_vector(training_loss, os.path.join(output_dir, "bibd_acc_%d_training_loss.dat"%(n_stragglers)))
+        save_vector(testing_loss, os.path.join(output_dir, "bibd_acc_%d_testing_loss.dat"%(n_stragglers)))
+        save_vector(auc_loss, os.path.join(output_dir, "bibd_acc_%d_auc.dat"%(n_stragglers)))
+        save_vector(timeset, os.path.join(output_dir, "bibd_acc_%d_timeset.dat"%(n_stragglers)))
+        save_matrix(worker_timeset, os.path.join(output_dir, "bibd_acc_%d_worker_timeset.dat"%(n_stragglers)))
+        print(f">>> Done with avg iter_time: {np.average(timeset)}")
 
     comm.Barrier()
